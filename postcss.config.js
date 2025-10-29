@@ -1,0 +1,7 @@
+// filepath: /Users/sofia/Desktop/bauhaus-reporting/frontend/postcss.config.js
+module.exports = {
+  plugins: [
+    require('tailwindcss'),
+    require('autoprefixer'),
+  ],
+};

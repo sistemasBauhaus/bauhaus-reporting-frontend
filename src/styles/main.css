@@ -1,0 +1,47 @@
+/* filepath: /Users/sofia/Desktop/bauhaus-reporting/frontend/src/styles/main.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Logo circular grande y centrado */
+@layer components {
+  .bauhaus-logo-circle {
+    @apply bg-blue-100 rounded-full flex items-center justify-center shadow w-24 h-24;
+  }
+  .bauhaus-logo-img {
+    @apply w-20 h-20 object-contain;
+  }
+  .bauhaus-header-title {
+    @apply text-4xl font-bold text-blue-900;
+  }
+}
+
+body, #root {
+  background: #fff !important;
+}
+
+.layout-root {
+  height: 100vh;
+  display: flex;
+  overflow: hidden;
+}
+
+.sidebar {
+  height: 100vh;
+  width: 16rem; /* 64 Tailwind = 16rem */
+  position: fixed;
+  top: 0;
+  left: 0;
+  flex-shrink: 0;
+  background-color: #1d3570;
+  display: flex;
+  flex-direction: column;
+  z-index: 40;
+}
+
+.main-content {
+  flex: 1;
+  height: 100vh;
+  overflow-y: auto;
+  background: #fff;
+}
