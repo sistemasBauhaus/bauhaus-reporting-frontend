@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Layout from './components/Layout';
+import ReporteMensualComponent from './pages/ReporteMensual';
 
 // Componente para proteger rutas
 const PrivateRoute = ({ children }: { children: ReactElement }) => {
@@ -22,6 +23,14 @@ function App() {
             element={
               <PrivateRoute>
                 <Dashboard />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/reporte-mensual"
+            element={
+              <PrivateRoute>
+                <ReporteMensualComponent />
               </PrivateRoute>
             }
           />

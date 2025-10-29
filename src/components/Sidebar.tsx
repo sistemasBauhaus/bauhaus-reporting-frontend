@@ -4,7 +4,9 @@ import { Link, useNavigate } from 'react-router-dom';
 
 const menuItems = [
   { label: 'Inicio', icon: FiHome, href: '/dashboard' },
-  { label: 'Reportes', icon: FiBarChart2, href: '/reportes' },
+  { label: 'Reporte Mensual', icon: FiBarChart2, href: '/reporte-mensual' },
+ // { label: 'Empresas', icon: FiSettings, href: '/empresas' },
+  //{ label: 'Roles', icon: FiSettings, href: '/roles' },
   { label: 'Configuración', icon: FiSettings, href: '/configuracion' },
 ];
 
