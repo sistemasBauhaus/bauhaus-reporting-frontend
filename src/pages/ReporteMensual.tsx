@@ -1,177 +1,294 @@
-import React, { useEffect, useState } from "react";
-import { fetchReporteMensual, ReporteMensual } from "../api/reportes";
+import { useEffect, useState, useMemo } from "react";
 
-const GRUPOS = [
-  { key: "liquidos_importe", label: "Líquidos" },
-  { key: "gnc_importe", label: "GNC" },
-  { key: "lubricantes_importe", label: "Lubricantes" },
-  { key: "adblue_importe", label: "AdBlue" },
-  { key: "shop_importe", label: "Shop" },
-];
-
-function agruparPorMes(data: ReporteMensual[]) {
-  // Agrupa los datos por mes (YYYY-MM)
-  return data.reduce((acc, item) => {
-    const mes = item.fecha.slice(0, 7); // "2025-10"
-    if (!acc[mes]) acc[mes] = [];
-    acc[mes].push(item);
-    return acc;
-  }, {} as Record<string, ReporteMensual[]>);
+interface RegistroSubdiario {
+  fecha: string;
+  categoria: string;
+  nombre: string;
+  litros: number;
+  importe: number;
 }
 
-function ReporteMensualComponent() {
-  const [pivot, setPivot] = useState<ReporteMensual[]>([]);
+const DIAS_POR_VISTA = 10; // Ahora muestra de a 10 días por página
+const DIAS_POR_DEFECTO = 10;
+
+export default function ReporteSubdiario() {
+  const [data, setData] = useState<RegistroSubdiario[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [grupoActivo, setGrupoActivo] = useState("liquidos_importe");
-  const [fechaDesde, setFechaDesde] = useState("");
-  const [fechaHasta, setFechaHasta] = useState("");
-  const [busqueda, setBusqueda] = useState("");
-  const [filtros, setFiltros] = useState({ fechaDesde: "", fechaHasta: "" });
+
+  const [fechaInicio, setFechaInicio] = useState("");
+  const [fechaFin, setFechaFin] = useState("");
+  const [categoriaActiva, setCategoriaActiva] = useState<string | null>(null);
+  const [pagina, setPagina] = useState(0);
+
+  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:4000";
+
+  // Fetch data
+  async function fetchData() {
+    try {
+      setLoading(true);
+      setError(null);
+      const params = new URLSearchParams();
+      if (fechaInicio) params.append("fechaInicio", fechaInicio);
+      if (fechaFin) params.append("fechaFin", fechaFin);
+
+      const res = await fetch(`${API_URL}/reportes/subdiario?${params.toString()}`);
+      const json = await res.json();
+      if (!json.ok) throw new Error("Error al obtener datos");
+      setData(json.data);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    setLoading(true);
-    fetchReporteMensual({ fechaInicio: filtros.fechaDesde, fechaFin: filtros.fechaHasta })
-      .then((data) => setPivot(data))
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [filtros]);
+    fetchData();
+    // eslint-disable-next-line
+  }, []);
 
-  const pivotFiltrado = pivot.filter((r) => {
-    const texto = `${r.fecha} ${GRUPOS.map(g => r[g.key as keyof ReporteMensual] ?? "").join(" ")}`.toLowerCase();
-    return busqueda ? texto.includes(busqueda.toLowerCase()) : true;
-  });
+  // Fechas únicas ordenadas (todas las filtradas o los últimos 10 días si no hay filtro)
+  const fechasUnicas = useMemo(() => {
+    let fechas = Array.from(new Set(data.map((d) => d.fecha))).sort();
 
-  const totalGrupo = pivotFiltrado.reduce(
-    (sum, r) => sum + (Number(r[grupoActivo as keyof ReporteMensual]) || 0),
-    0
+    // Si hay categoría activa, solo fechas donde hay datos de esa categoría
+    if (categoriaActiva) {
+      fechas = fechas.filter((fecha) =>
+        data.some((d) => d.fecha === fecha && d.categoria === categoriaActiva)
+      );
+    }
+
+    // Si no hay filtro de fechas, mostrar solo los últimos 10 días del mes en curso
+    if (!fechaInicio && !fechaFin) {
+      const now = new Date();
+      const mesActual = now.getMonth();
+      const anioActual = now.getFullYear();
+
+      // Filtrar fechas del mes y año actual
+      fechas = fechas.filter((f) => {
+        const fd = new Date(f);
+        return fd.getMonth() === mesActual && fd.getFullYear() === anioActual;
+      });
+
+      // Tomar los últimos 10 días del mes en curso
+      fechas = fechas.slice(-DIAS_POR_DEFECTO);
+    }
+
+    return fechas;
+  }, [data, fechaInicio, fechaFin, categoriaActiva]);
+
+  // Paginación de fechas (siempre sobre fechasUnicas)
+  const totalPaginas = Math.ceil(fechasUnicas.length / DIAS_POR_VISTA);
+  const fechasMostradas = fechasUnicas.slice(
+    pagina * DIAS_POR_VISTA,
+    pagina * DIAS_POR_VISTA + DIAS_POR_VISTA
   );
 
+  // Categorías únicas
+  const categorias = useMemo(
+    () => Array.from(new Set(data.map((d) => d.categoria))),
+    [data]
+  );
+
+  // Filtrar por categoría activa
+  const dataFiltrada = categoriaActiva
+    ? data.filter((d) => d.categoria === categoriaActiva)
+    : data;
+
+  // Resumen por fecha
+  const resumenPorFecha = useMemo(
+    () =>
+      fechasUnicas.map((fecha) => {
+        const registros = dataFiltrada.filter((r) => r.fecha === fecha);
+        const categoriasEnFecha = Array.from(new Set(registros.map((r) => r.categoria)));
+        const categoriasConDatos = categoriasEnFecha.map((cat) => {
+          const productos = registros.filter((r) => r.categoria === cat);
+          const totalLitros = productos.reduce((a, b) => a + Number(b.litros), 0);
+          const totalImporte = productos.reduce((a, b) => a + Number(b.importe), 0);
+          return { categoria: cat, productos, totalLitros, totalImporte };
+        });
+        const totalDia = categoriasConDatos.reduce((a, b) => a + b.totalImporte, 0);
+        const litrosDia = categoriasConDatos.reduce((a, b) => a + b.totalLitros, 0);
+        return { fecha, categoriasConDatos, totalDia, litrosDia };
+      }),
+    [fechasUnicas, dataFiltrada]
+  );
+
+  // Totales generales
+  const totalGeneral = resumenPorFecha.reduce((a, b) => a + b.totalDia, 0);
+  const totalLitrosGeneral = resumenPorFecha.reduce((a, b) => a + b.litrosDia, 0);
+
+  // Resetear página al buscar o limpiar
   const handleBuscar = () => {
-    setFiltros({ fechaDesde, fechaHasta });
+    setCategoriaActiva(null);
+    setPagina(0);
+    fetchData();
   };
 
   const handleLimpiar = () => {
-    setFechaDesde("");
-    setFechaHasta("");
-    setBusqueda("");
-    setFiltros({ fechaDesde: "", fechaHasta: "" });
+    setFechaInicio("");
+    setFechaFin("");
+    setCategoriaActiva(null);
+    setPagina(0);
+    fetchData();
   };
 
-  // Agrupar por mes para mostrar separadores en la tabla
-  const datosPorMes = agruparPorMes(pivotFiltrado);
+  // Si cambia el filtro de fechas y la página queda fuera de rango, la ajusta
+  useEffect(() => {
+    if (pagina > totalPaginas - 1) setPagina(0);
+  }, [totalPaginas, pagina]);
 
   if (loading)
-    return <div className="text-center py-10 text-blue-900 font-semibold">Cargando datos...</div>;
+    return <div className="text-center text-blue-700 mt-10 font-medium">Cargando reporte subdiario...</div>;
 
   if (error)
-    return <div style={{ color: "red" }}>{error}</div>;
+    return <div className="text-center text-red-600 mt-10 font-medium">{error}</div>;
 
   return (
-    <div className="max-w-5xl mx-auto mt-8 bg-white rounded-xl shadow-lg p-8">
-      <h1 className="text-3xl font-bold mb-8 text-blue-900">Reporte Mensual - Ventas por Día</h1>
-      {/* Filtros */}
-      <div className="flex flex-col md:flex-row gap-4 mb-6 items-end">
-        <div className="flex flex-col">
-          <label className="text-sm text-blue-900 mb-1">Desde</label>
-          <input
-            type="date"
-            value={fechaDesde}
-            onChange={e => setFechaDesde(e.target.value)}
-            className="border border-blue-200 rounded px-4 py-2 text-blue-900 text-base"
-          />
+    <div className="max-w-5xl mx-auto mt-10">
+      <h1 className="text-3xl font-bold text-blue-900 text-center mb-8">
+        Subdiario de Caja - Ventas Diarias
+      </h1>
+
+      {/* Cartel de aviso de los últimos 10 días por defecto */}
+      {!fechaInicio && !fechaFin && (
+        <div className="mb-4 text-center text-blue-800 bg-blue-50 border border-blue-200 rounded py-2 font-semibold">
+          Mostrando por defecto los últimos 10 días del mes en curso.
         </div>
-        <div className="flex flex-col">
-          <label className="text-sm text-blue-900 mb-1">Hasta</label>
-          <input
-            type="date"
-            value={fechaHasta}
-            onChange={e => setFechaHasta(e.target.value)}
-            className="border border-blue-200 rounded px-4 py-2 text-blue-900 text-base"
-          />
-        </div>
-        <div className="flex flex-col flex-1">
-          <label className="text-sm text-blue-900 mb-1">Buscar</label>
-          <input
-            type="text"
-            placeholder="Buscar por fecha o importe..."
-            value={busqueda}
-            onChange={e => setBusqueda(e.target.value)}
-            className="border border-blue-200 rounded px-4 py-2 text-blue-900 text-base w-full"
-          />
-        </div>
+      )}
+
+      {/* Filtros arriba */}
+      <div className="flex flex-wrap gap-4 justify-center mb-6">
+        <input
+          type="date"
+          value={fechaInicio}
+          onChange={(e) => setFechaInicio(e.target.value)}
+          className="border rounded px-3 py-2"
+        />
+        <input
+          type="date"
+          value={fechaFin}
+          onChange={(e) => setFechaFin(e.target.value)}
+          className="border rounded px-3 py-2"
+        />
         <button
           onClick={handleBuscar}
-          className="bg-blue-700 text-white px-4 py-2 rounded text-base font-semibold shadow hover:bg-blue-800 transition"
+          className="bg-blue-700 text-white px-4 py-2 rounded"
         >
           Buscar
         </button>
         <button
           onClick={handleLimpiar}
-          className="bg-gray-200 text-blue-700 px-4 py-2 rounded text-base font-semibold shadow hover:bg-gray-300 transition"
+          className="bg-gray-200 text-blue-700 px-4 py-2 rounded"
         >
           Limpiar
         </button>
       </div>
-      {/* Solapas */}
-      <div className="flex gap-4 mb-6 border-b border-blue-200">
-        {GRUPOS.map((g) => (
+
+      {/* Categorías como chips */}
+      <div className="flex flex-wrap gap-2 justify-center mb-8">
+        <button
+          onClick={() => setCategoriaActiva(null)}
+          className={`px-4 py-1 rounded-full ${
+            categoriaActiva === null
+              ? "bg-blue-700 text-white"
+              : "bg-gray-100 text-blue-900"
+          }`}
+        >
+          Todas
+        </button>
+        {categorias.map((c) => (
           <button
-            key={g.key}
-            onClick={() => setGrupoActivo(g.key)}
-            className={`px-6 py-3 rounded-t-lg text-base font-medium transition
-              ${grupoActivo === g.key
-                ? "bg-blue-700 text-white shadow"
-                : "bg-blue-100 text-blue-700 hover:bg-blue-200"}
-            border border-b-0 border-blue-200`}
-            style={{ minWidth: 120 }}
+            key={c}
+            onClick={() => setCategoriaActiva(c)}
+            className={`px-4 py-1 rounded-full ${
+              categoriaActiva === c
+                ? "bg-blue-700 text-white"
+                : "bg-gray-100 text-blue-900"
+            }`}
           >
-            {g.label}
+            {c}
           </button>
         ))}
       </div>
-      {/* Tabla */}
-      <div className="overflow-x-auto">
-        <table className="min-w-full border border-blue-200 rounded-lg shadow-sm bg-white text-base">
-          <thead>
-            <tr>
-              <th className="px-4 py-3 bg-blue-50 border-b border-blue-200 text-blue-900 text-left">Fecha</th>
-              <th className="px-4 py-3 bg-blue-50 border-b border-blue-200 text-blue-900 text-left">
-                {GRUPOS.find((g) => g.key === grupoActivo)?.label}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {Object.entries(datosPorMes).map(([mes, filas]) => (
-              <React.Fragment key={mes}>
-                <tr>
-                  <td colSpan={2} className="bg-blue-100 text-blue-900 font-bold text-base px-4 py-2 border-b border-blue-200">
-                    {new Date(mes + "-02").toLocaleString("es-AR", { month: "long", year: "numeric" })}
-                  </td>
-                </tr>
-                {filas.map((r, i) => (
-                  <tr key={r.fecha} className={i % 2 === 0 ? "bg-blue-50" : "bg-white"}>
-                    <td className="px-4 py-2 border-b border-blue-100">{r.fecha}</td>
-                    <td className="px-4 py-2 border-b border-blue-100 font-semibold">
-                      ${Number(r[grupoActivo as keyof ReporteMensual] || 0).toLocaleString("es-AR")}
-                    </td>
-                  </tr>
+
+      {/* Tarjetas de días */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {fechasMostradas.length > 0 ? (
+          fechasMostradas.map((fecha) => {
+            const resumen = resumenPorFecha.find((r) => r.fecha === fecha);
+            if (!resumen) return null;
+            const { categoriasConDatos, totalDia, litrosDia } = resumen;
+            return (
+              <div key={fecha} className="bg-white rounded-xl shadow p-6 flex flex-col gap-2 border border-blue-100">
+                <div className="text-blue-800 font-bold text-lg mb-2 border-b pb-2">
+                  {new Date(fecha).toLocaleDateString("es-AR", {
+                    day: "2-digit",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </div>
+                {categoriasConDatos.map((cat) => (
+                  <div key={cat.categoria} className="flex justify-between items-center py-1 border-b last:border-b-0">
+                    <span className="font-semibold text-blue-900">{cat.categoria}</span>
+                    <span className="text-sm text-gray-700">{cat.productos.map((p) => p.nombre).join(", ")}</span>
+                    <span className="text-right text-blue-700">
+                      {cat.totalLitros.toLocaleString("es-AR")} <span className="text-xs text-gray-500">litros</span>
+                    </span>
+                    <span className="text-right font-bold text-green-700">
+                      ${cat.totalImporte.toLocaleString("es-AR")}
+                    </span>
+                  </div>
                 ))}
-              </React.Fragment>
-            ))}
-            {/* Fila de totales */}
-            <tr className="bg-blue-100 font-bold">
-              <td className="px-4 py-3 border-b border-blue-200">Total</td>
-              <td className="px-4 py-3 border-b border-blue-200">
-                ${totalGrupo.toLocaleString("es-AR")}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                <div className="mt-2 pt-2 border-t flex flex-col gap-1">
+                  {categoriasConDatos.length > 1 && (
+                    <div className="flex justify-between font-bold text-blue-900">
+                      <span>Total Día:</span>
+                      <span>
+                        {litrosDia.toLocaleString("es-AR")} <span className="text-xs text-gray-500">litros</span>
+                      </span>
+                      <span>${totalDia.toLocaleString("es-AR")}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="col-span-2 text-center text-blue-700 mt-10 font-medium">No hay datos para mostrar.</div>
+        )}
       </div>
-      <div className="text-base text-blue-400 mt-6">* Haz clic en cada solapa para ver el grupo correspondiente.</div>
+
+      {/* Paginación abajo */}
+      {totalPaginas > 1 && (
+        <div className="flex items-center justify-center mt-8 gap-4">
+          <button
+            onClick={() => setPagina((p) => Math.max(p - 1, 0))}
+            disabled={pagina === 0}
+            className="px-3 py-2 rounded-full bg-blue-100 text-blue-700 font-bold disabled:opacity-50"
+          >
+            ◀
+          </button>
+          <div className="font-bold text-blue-900 text-lg">
+            Página {pagina + 1} de {totalPaginas}
+          </div>
+          <button
+            onClick={() => setPagina((p) => (p + 1 < totalPaginas ? p + 1 : p))}
+            disabled={pagina + 1 >= totalPaginas}
+            className="px-3 py-2 rounded-full bg-blue-100 text-blue-700 font-bold disabled:opacity-50"
+          >
+            ▶
+          </button>
+        </div>
+      )}
+
+      {/* Total general abajo */}
+      <div className="text-right font-extrabold text-blue-900 text-xl mt-12 mb-8 border-t-2 border-blue-200 pt-6">
+        TOTAL GENERAL: ${totalGeneral.toLocaleString("es-AR")}
+        <br />
+        TOTAL LITROS: {totalLitrosGeneral.toLocaleString("es-AR")}
+      </div>
     </div>
   );
 }
-
-export default ReporteMensualComponent;

@@ -27,7 +27,7 @@ function App() {
             }
           />
           <Route
-            path="/reporte-mensual"
+            path="/reporte-diario"
             element={
               <PrivateRoute>
                 <ReporteMensualComponent />

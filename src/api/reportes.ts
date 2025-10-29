@@ -1,31 +1,21 @@
-const API_URL = process.env.REACT_APP_API_URL || "";
-
-export interface ReporteMensual {
+export interface ReporteSubdiario {
   fecha: string;
-  liquidos_importe?: number;
-  gnc_importe?: number;
-  lubricantes_importe?: number;
-  adblue_importe?: number;
-  shop_importe?: number;
-  total?: number;
+  quantium: number;
+  super: number;
+  diesel_x10: number;
+  quantium_diesel: number;
+  gnc: number;
+  lubricantes: number;
+  adblue: number;
+  shop: number;
+  total: number;
+  
 }
 
-export async function fetchReporteMensual({ fechaInicio, fechaFin }: { fechaInicio?: string, fechaFin?: string }): Promise<ReporteMensual[]> {
-  let url = `${API_URL}/reportes/mensual`;
-  const params = [];
-  if (fechaInicio) params.push(`fechaInicio=${fechaInicio}`);
-  if (fechaFin) params.push(`fechaFin=${fechaFin}`);
-  if (params.length) url += "?" + params.join("&");
-  const res = await fetch(url);
-  const contentType = res.headers.get("content-type");
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Error ${res.status}: ${text}`);
-  }
-  if (!contentType || !contentType.includes("application/json")) {
-    const text = await res.text();
-    throw new Error(`Respuesta inesperada del servidor: ${text}`);
-  }
-  const data = await res.json();
+export async function fetchReporteSubdiario(): Promise<ReporteSubdiario[]> {
+  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:4000";
+  const response = await fetch(`${API_URL}/reportes/subdiario`);
+  const data = await response.json();
+  if (!data.ok) throw new Error("Error al obtener el reporte subdiario");
   return data.data;
 }
