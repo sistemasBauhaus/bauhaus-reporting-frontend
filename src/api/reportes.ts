@@ -1,3 +1,5 @@
+const API_URL = process.env.REACT_APP_API_URL || "";
+
 export interface ReporteMensual {
   fecha: string;
   liquidos_importe?: number;
@@ -9,7 +11,7 @@ export interface ReporteMensual {
 }
 
 export async function fetchReporteMensual({ fechaInicio, fechaFin }: { fechaInicio?: string, fechaFin?: string }): Promise<ReporteMensual[]> {
-  let url = "/api/reportes/mensual";
+  let url = `${API_URL}/reportes/mensual`;
   const params = [];
   if (fechaInicio) params.push(`fechaInicio=${fechaInicio}`);
   if (fechaFin) params.push(`fechaFin=${fechaFin}`);
