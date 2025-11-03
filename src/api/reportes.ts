@@ -16,6 +16,7 @@ export async function fetchReporteSubdiario(): Promise<ReporteSubdiario[]> {
   const API_URL = process.env.REACT_APP_API_URL || "http://localhost:4000";
   const response = await fetch(`${API_URL}/reportes/subdiario`);
   const data = await response.json();
+  console.log("Respuesta completa del backend:", data); // <-- Agrega este log aquí
   if (!data.ok) throw new Error("Error al obtener el reporte subdiario");
   return data.data;
 }

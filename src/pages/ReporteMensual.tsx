@@ -60,26 +60,14 @@ export default function ReporteSubdiario() {
   const fechasUnicas = useMemo(() => {
     let fechas = Array.from(new Set(data.map((d) => d.fecha))).sort();
 
-    // Si hay categoría activa, solo fechas donde hay datos de esa categoría
     if (categoriaActiva) {
       fechas = fechas.filter((fecha) =>
         data.some((d) => d.fecha === fecha && d.categoria === categoriaActiva)
       );
     }
 
-    // Si no hay filtro de fechas, mostrar solo los últimos 10 días del mes en curso
+    // Mostrar los últimos 10 días con datos si no hay filtro de fechas
     if (!fechaInicio && !fechaFin) {
-      const now = new Date();
-      const mesActual = now.getMonth();
-      const anioActual = now.getFullYear();
-
-      // Filtrar fechas del mes y año actual
-      fechas = fechas.filter((f) => {
-        const fd = new Date(f);
-        return fd.getMonth() === mesActual && fd.getFullYear() === anioActual;
-      });
-
-      // Tomar los últimos 10 días del mes en curso
       fechas = fechas.slice(-DIAS_POR_DEFECTO);
     }
 
@@ -95,11 +83,16 @@ export default function ReporteSubdiario() {
 
   // Categorías únicas
   const estaciones = useMemo(
-    () => Array.from(new Set(data.map((d) => d.nombre_estacion))),
+    () => Array.from(new Set(data.map((d) => d.nombre_estacion).filter(Boolean))),
     [data]
   );
   const cajas = useMemo(
-    () => Array.from(new Set(data.map((d) => d.nombre_caja))),
+    () =>
+      Array.from(
+        new Set(
+          data.map((d) => `${d.nombre_caja} - ${d.nombre_estacion}`).filter(Boolean)
+        )
+      ),
     [data]
   );
 
@@ -149,10 +142,24 @@ export default function ReporteSubdiario() {
     fetchData();
   };
 
+  const handleFechaInicio = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setFechaInicio(value);
+    if (fechaFin && value > fechaFin) setFechaFin(value);
+  };
+
+  const handleFechaFin = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setFechaFin(value);
+    if (fechaInicio && value < fechaInicio) setFechaInicio(value);
+  };
+
   // Si cambia el filtro de fechas y la página queda fuera de rango, la ajusta
   useEffect(() => {
     if (pagina > totalPaginas - 1) setPagina(0);
   }, [totalPaginas, pagina]);
+
+  const categoriasPosibles = ["SHOP", "LIQUIDOS", "GNC", "OTROS"];
 
   if (loading)
     return <div className="text-center text-blue-700 mt-10 font-medium">Cargando reporte subdiario...</div>;
@@ -174,48 +181,62 @@ export default function ReporteSubdiario() {
       )}
 
       {/* Filtros arriba */}
-      <div className="flex flex-wrap gap-4 justify-center mb-6">
-        <input
-          type="date"
-          value={fechaInicio}
-          onChange={(e) => setFechaInicio(e.target.value)}
-          className="border rounded px-3 py-2"
-        />
-        <input
-          type="date"
-          value={fechaFin}
-          onChange={(e) => setFechaFin(e.target.value)}
-          className="border rounded px-3 py-2"
-        />
-        <select
-          value={estacionFiltro}
-          onChange={e => setEstacionFiltro(e.target.value)}
-          className="border rounded px-3 py-2"
-        >
-          <option value="">Todas las estaciones</option>
-          {estaciones.map(est => (
-            <option key={est} value={est}>{est}</option>
-          ))}
-        </select>
-        <select
-          value={cajaFiltro}
-          onChange={e => setCajaFiltro(e.target.value)}
-          className="border rounded px-3 py-2"
-        >
-          <option value="">Todas las cajas</option>
-          {cajas.map(caja => (
-            <option key={caja} value={caja}>{caja}</option>
-          ))}
-        </select>
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8 flex flex-wrap gap-4 items-center justify-center shadow-sm">
+        <div className="flex flex-col">
+          <label className="text-xs text-blue-900 font-semibold mb-1">Desde</label>
+          <input
+            type="date"
+            value={fechaInicio}
+            onChange={handleFechaInicio}
+            max={fechaFin || undefined}
+            className="border border-blue-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
+          />
+        </div>
+        <div className="flex flex-col">
+          <label className="text-xs text-blue-900 font-semibold mb-1">Hasta</label>
+          <input
+            type="date"
+            value={fechaFin}
+            onChange={handleFechaFin}
+            min={fechaInicio || undefined}
+            className="border border-blue-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
+          />
+        </div>
+        <div className="flex flex-col">
+          <label className="text-xs text-blue-900 font-semibold mb-1">Estación</label>
+          <select
+            value={estacionFiltro}
+            onChange={e => setEstacionFiltro(e.target.value)}
+            className="border border-blue-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
+          >
+            <option value="">Todas las estaciones</option>
+            {estaciones.map(est => (
+              <option key={est} value={est}>{est}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col">
+          <label className="text-xs text-blue-900 font-semibold mb-1">Caja</label>
+          <select
+            value={cajaFiltro}
+            onChange={e => setCajaFiltro(e.target.value)}
+            className="border border-blue-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
+          >
+            <option value="">Todas las cajas</option>
+            {cajas.map(caja => (
+              <option key={caja} value={caja}>{caja}</option>
+            ))}
+          </select>
+        </div>
         <button
           onClick={handleBuscar}
-          className="bg-blue-700 text-white px-4 py-2 rounded"
+          className="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded font-semibold transition"
         >
           Buscar
         </button>
         <button
           onClick={handleLimpiar}
-          className="bg-gray-200 text-blue-700 px-4 py-2 rounded"
+          className="bg-gray-100 hover:bg-gray-200 text-blue-700 px-4 py-2 rounded font-semibold transition"
         >
           Limpiar
         </button>
@@ -233,7 +254,7 @@ export default function ReporteSubdiario() {
         >
           Todas
         </button>
-        {Array.from(new Set(data.map((d) => d.categoria))).map((c) => (
+        {categoriasPosibles.map((c) => (
           <button
             key={c}
             onClick={() => setCategoriaActiva(c)}
@@ -248,50 +269,53 @@ export default function ReporteSubdiario() {
         ))}
       </div>
 
-      {/* Tarjetas de días */}
-      <div className="grid md:grid-cols-2 gap-6">
+      {/* Tarjetas de días estilo tabla */}
+      <div className="flex flex-col gap-8">
         {fechasMostradas.length > 0 ? (
           fechasMostradas.map((fecha) => {
             const resumen = resumenPorFecha.find((r) => r.fecha === fecha);
             if (!resumen) return null;
             const { categoriasConDatos, totalDia, litrosDia } = resumen;
             return (
-              <div key={fecha} className="bg-white rounded-xl shadow p-6 flex flex-col gap-2 border border-blue-100">
-                <div className="text-blue-800 font-bold text-lg mb-2 border-b pb-2">
-                  {new Date(fecha).toLocaleDateString("es-AR", {
-                    day: "2-digit",
-                    month: "long",
-                    year: "numeric",
-                  })}
+              <div
+                key={fecha}
+                className="bg-white rounded-xl shadow border border-blue-200"
+              >
+                <div className="bg-blue-50 border-b border-blue-200 px-6 py-3 rounded-t-xl flex justify-between items-center">
+                  <span className="text-blue-800 font-bold text-lg">
+                    {new Date(fecha).toLocaleDateString("es-AR", {
+                      day: "2-digit",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </span>
+                  <span className="font-bold text-blue-900">
+                    Total Día: ${totalDia.toLocaleString("es-AR")} | {litrosDia.toLocaleString("es-AR")} litros
+                  </span>
                 </div>
-                {categoriasConDatos.map((cat) => {
-                  // Obtener combinaciones únicas de estación/caja
-                  const estacionesCajasUnicas = Array.from(
-                    new Map(
-                      cat.productos.map((p) => [
-                        `${p.nombre_estacion}__${p.nombre_caja}`,
-                        { nombre_estacion: p.nombre_estacion, nombre_caja: p.nombre_caja },
-                      ])
-                    ).values()
-                  );
-
-                  return (
-                    <div
-                      key={cat.categoria}
-                      className="py-3 border-b last:border-b-0 grid grid-cols-1 md:grid-cols-4 gap-2 items-center"
-                    >
-                      <div>
-                        <span className="block font-semibold text-blue-900">{cat.categoria}</span>
-                        <span className="block text-xs text-gray-500">
-                          {cat.productos.map((p) => p.nombre).join(", ")}
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {(() => {
-                          // Toma el primer producto (siempre es la misma estación/caja)
-                          const p = cat.productos[0];
-                          return (
-                            <span className="flex gap-1 items-center">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-blue-100">
+                    <thead>
+                      <tr className="bg-blue-100">
+                        <th className="px-4 py-2 text-left text-xs font-bold text-blue-900 uppercase">Categoría</th>
+                        <th className="px-4 py-2 text-left text-xs font-bold text-blue-900 uppercase">Productos</th>
+                        <th className="px-4 py-2 text-left text-xs font-bold text-blue-900 uppercase">Estación</th>
+                        <th className="px-4 py-2 text-left text-xs font-bold text-blue-900 uppercase">Caja</th>
+                        <th className="px-4 py-2 text-right text-xs font-bold text-blue-900 uppercase">Litros</th>
+                        <th className="px-4 py-2 text-right text-xs font-bold text-blue-900 uppercase">Importe</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {categoriasConDatos.map((cat, idx) => {
+                        // Solo una estación/caja por categoría
+                        const p = cat.productos[0];
+                        return (
+                          <tr key={cat.categoria + idx} className="hover:bg-blue-50">
+                            <td className="px-4 py-2 font-semibold text-blue-900">{cat.categoria}</td>
+                            <td className="px-4 py-2 text-gray-700 text-xs">
+                              {cat.productos.map((p) => p.nombre).join(", ")}
+                            </td>
+                            <td className="px-4 py-2">
                               <span
                                 className="bg-blue-100 text-blue-800 rounded-full px-2 py-0.5 text-xs font-medium max-w-[110px] truncate"
                                 title={p.nombre_estacion || "Sin estación"}
@@ -299,6 +323,8 @@ export default function ReporteSubdiario() {
                               >
                                 {p.nombre_estacion || "Sin estación"}
                               </span>
+                            </td>
+                            <td className="px-4 py-2">
                               <span
                                 className="bg-green-100 text-green-800 rounded-full px-2 py-0.5 text-xs font-medium max-w-[90px] truncate"
                                 title={p.nombre_caja || "Sin caja"}
@@ -306,34 +332,18 @@ export default function ReporteSubdiario() {
                               >
                                 {p.nombre_caja || "Sin caja"}
                               </span>
-                            </span>
-                          );
-                        })()}
-                      </div>
-                      <div className="text-right">
-                        <span className="block text-blue-700 font-semibold">
-                          {cat.totalLitros.toLocaleString("es-AR")}{" "}
-                          <span className="text-xs text-gray-500">litros</span>
-                        </span>
-                      </div>
-                      <div className="text-right">
-                        <span className="block font-bold text-green-700">
-                          ${cat.totalImporte.toLocaleString("es-AR")}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-                <div className="mt-2 pt-2 border-t flex flex-col gap-1">
-                  {categoriasConDatos.length > 1 && (
-                    <div className="flex justify-between font-bold text-blue-900">
-                      <span>Total Día:</span>
-                      <span>
-                        {litrosDia.toLocaleString("es-AR")} <span className="text-xs text-gray-500">litros</span>
-                      </span>
-                      <span>${totalDia.toLocaleString("es-AR")}</span>
-                    </div>
-                  )}
+                            </td>
+                            <td className="px-4 py-2 text-right text-blue-700 font-semibold">
+                              {cat.totalLitros.toLocaleString("es-AR")}
+                            </td>
+                            <td className="px-4 py-2 text-right font-bold text-green-700">
+                              ${cat.totalImporte.toLocaleString("es-AR")}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             );

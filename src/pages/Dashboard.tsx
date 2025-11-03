@@ -22,7 +22,17 @@ const Dashboard: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const data = await fetchPcMensual();
+      // Si hay mes seleccionado, calcula el primer y último día del mes
+      let fechaInicio = "";
+      let fechaFin = "";
+      if (fechaMes) {
+        fechaInicio = fechaMes.slice(0, 7) + "-01";
+        // Obtener último día del mes seleccionado
+        const [anio, mes] = fechaMes.slice(0, 7).split("-");
+        const ultimoDia = new Date(Number(anio), Number(mes), 0).getDate();
+        fechaFin = `${anio}-${mes}-${ultimoDia}`;
+      }
+      const data = await fetchPcMensual(fechaInicio, fechaFin);
       const mapped = data.map(item => ({
         categoria: item.categoria,
         origen: item.producto,
