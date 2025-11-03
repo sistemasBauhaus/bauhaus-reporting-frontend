@@ -1,13 +1,12 @@
 export interface PcMensualBackend {
-  fecha: string;
-  producto: string;
   categoria: string;
-  total_importe: number;    // Usa number si el backend envía número, o string si es string
-  total_cantidad: number;   // Usa number si el backend envía número, o string si es string
-  estacion_id: number;
-  nombre_estacion: string;
-  caja_id: number;
-  nombre_caja: string;
+  producto: string;
+  fecha: string;
+  total_cantidad: number;
+  total_importe: number;
+  metodo_pago?: string;    
+  nro_surtidor?: string;
+   promedio_precio: number;    
 }
 
 export async function fetchPcMensual(
@@ -39,3 +38,29 @@ export async function fetchPcMensual(
   }
 }
 
+// Nuevo endpoint: /api/pcMensual/resumen
+export interface PcResumenMensual {
+  tipo: string;
+  total_importe: number;
+  total_cantidad: number;
+  promedio_precio: number;
+}
+
+export async function fetchPcResumenMensual(
+  fechaInicio: string,
+  fechaFin: string
+): Promise<PcResumenMensual[]> {
+   const API_URL = process.env.REACT_APP_API_URL;
+  const params = new URLSearchParams();
+  if (fechaInicio) params.append("fechaInicio", fechaInicio);
+  if (fechaFin) params.append("fechaFin", fechaFin);
+
+  const fullUrl = `${API_URL}/pcMensual/resumen?${params.toString()}`;
+  console.log("🌍 Fetch resumen mensual:", fullUrl);
+
+  const response = await fetch(fullUrl);
+  const json = await response.json();
+
+  if (json.ok && Array.isArray(json.data)) return json.data;
+  throw new Error("Respuesta inválida del servidor");
+}

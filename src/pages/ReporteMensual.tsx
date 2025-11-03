@@ -168,46 +168,41 @@ export default function ReporteSubdiario() {
     return <div className="text-center text-red-600 mt-10 font-medium">{error}</div>;
 
   return (
-    <div className="max-w-5xl mx-auto mt-10">
-      <h1 className="text-3xl font-bold text-blue-900 text-center mb-8">
+    <div className="max-w-5xl mx-auto mt-10 px-2">
+      <h1 className="text-3xl font-bold text-gray-900 text-center mb-8 tracking-tight">
         Subdiario de Caja - Ventas Diarias
       </h1>
 
-      {/* Cartel de aviso de los últimos 10 días por defecto */}
-      {!fechaInicio && !fechaFin && (
-        <div className="mb-4 text-center text-blue-800 bg-blue-50 border border-blue-200 rounded py-2 font-semibold">
-          Mostrando por defecto los últimos 10 días del mes en curso.
-        </div>
-      )}
-
-      {/* Filtros arriba */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8 flex flex-wrap gap-4 items-center justify-center shadow-sm">
-        <div className="flex flex-col">
-          <label className="text-xs text-blue-900 font-semibold mb-1">Desde</label>
+      {/* Filtros */}
+      <div className="flex flex-wrap gap-4 mb-8 items-center justify-center bg-white shadow-sm p-4">
+        <div>
+          <label className="block text-gray-700 font-medium mb-1 text-xs" htmlFor="desde">Desde</label>
           <input
+            id="desde"
             type="date"
             value={fechaInicio}
             onChange={handleFechaInicio}
             max={fechaFin || undefined}
-            className="border border-blue-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
+            className="border border-gray-300 px-3 py-2 text-gray-900 text-base focus:outline-none focus:ring-2 focus:ring-blue-300"
           />
         </div>
-        <div className="flex flex-col">
-          <label className="text-xs text-blue-900 font-semibold mb-1">Hasta</label>
+        <div>
+          <label className="block text-gray-700 font-medium mb-1 text-xs" htmlFor="hasta">Hasta</label>
           <input
+            id="hasta"
             type="date"
             value={fechaFin}
             onChange={handleFechaFin}
             min={fechaInicio || undefined}
-            className="border border-blue-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
+            className="border border-gray-300 px-3 py-2 text-gray-900 text-base focus:outline-none focus:ring-2 focus:ring-blue-300"
           />
         </div>
-        <div className="flex flex-col">
-          <label className="text-xs text-blue-900 font-semibold mb-1">Estación</label>
+        <div>
+          <label className="block text-gray-700 font-medium mb-1 text-xs">Estación</label>
           <select
             value={estacionFiltro}
             onChange={e => setEstacionFiltro(e.target.value)}
-            className="border border-blue-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
+            className="border border-gray-300 px-3 py-2 text-gray-900 text-base focus:outline-none focus:ring-2 focus:ring-blue-300"
           >
             <option value="">Todas las estaciones</option>
             {estaciones.map(est => (
@@ -215,12 +210,12 @@ export default function ReporteSubdiario() {
             ))}
           </select>
         </div>
-        <div className="flex flex-col">
-          <label className="text-xs text-blue-900 font-semibold mb-1">Caja</label>
+        <div>
+          <label className="block text-gray-700 font-medium mb-1 text-xs">Caja</label>
           <select
             value={cajaFiltro}
             onChange={e => setCajaFiltro(e.target.value)}
-            className="border border-blue-200 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
+            className="border border-gray-300 px-3 py-2 text-gray-900 text-base focus:outline-none focus:ring-2 focus:ring-blue-300"
           >
             <option value="">Todas las cajas</option>
             {cajas.map(caja => (
@@ -230,26 +225,26 @@ export default function ReporteSubdiario() {
         </div>
         <button
           onClick={handleBuscar}
-          className="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded font-semibold transition"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 font-semibold transition"
         >
           Buscar
         </button>
         <button
           onClick={handleLimpiar}
-          className="bg-gray-100 hover:bg-gray-200 text-blue-700 px-4 py-2 rounded font-semibold transition"
+          className="bg-gray-100 hover:bg-gray-200 text-blue-700 px-4 py-2 font-semibold transition"
         >
           Limpiar
         </button>
       </div>
 
-      {/* Categorías como chips */}
+      {/* Chips de categorías */}
       <div className="flex flex-wrap gap-2 justify-center mb-8">
         <button
           onClick={() => setCategoriaActiva(null)}
-          className={`px-4 py-1 rounded-full ${
+          className={`px-4 py-1 font-semibold transition ${
             categoriaActiva === null
-              ? "bg-blue-700 text-white"
-              : "bg-gray-100 text-blue-900"
+              ? "bg-blue-600 text-white"
+              : "bg-gray-100 text-gray-900 hover:bg-blue-50"
           }`}
         >
           Todas
@@ -258,10 +253,10 @@ export default function ReporteSubdiario() {
           <button
             key={c}
             onClick={() => setCategoriaActiva(c)}
-            className={`px-4 py-1 rounded-full ${
+            className={`px-4 py-1 font-semibold transition ${
               categoriaActiva === c
-                ? "bg-blue-700 text-white"
-                : "bg-gray-100 text-blue-900"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 text-gray-900 hover:bg-blue-50"
             }`}
           >
             {c}
@@ -269,7 +264,7 @@ export default function ReporteSubdiario() {
         ))}
       </div>
 
-      {/* Tarjetas de días estilo tabla */}
+      {/* Tarjetas de días */}
       <div className="flex flex-col gap-8">
         {fechasMostradas.length > 0 ? (
           fechasMostradas.map((fecha) => {
@@ -279,22 +274,22 @@ export default function ReporteSubdiario() {
             return (
               <div
                 key={fecha}
-                className="bg-white rounded-xl shadow border border-blue-200"
+                className="bg-blue-50 shadow border border-blue-200 mb-2"
               >
-                <div className="bg-blue-50 border-b border-blue-200 px-6 py-3 rounded-t-xl flex justify-between items-center">
-                  <span className="text-blue-800 font-bold text-lg">
+                <div className="bg-blue-200 border-b border-blue-300 px-6 py-3 flex justify-between items-center rounded-t">
+                  <span className="text-blue-900 font-bold text-lg">
                     {new Date(fecha).toLocaleDateString("es-AR", {
                       day: "2-digit",
                       month: "long",
                       year: "numeric",
                     })}
                   </span>
-                  <span className="font-bold text-blue-900">
-                    Total Día: ${totalDia.toLocaleString("es-AR")} | {litrosDia.toLocaleString("es-AR")} litros
+                  <span className="font-bold text-blue-900 text-base">
+                    Total Día: <span className="text-green-700">${totalDia.toLocaleString("es-AR")}</span> | <span className="text-blue-700">{litrosDia.toLocaleString("es-AR")} litros</span>
                   </span>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-blue-100">
+                  <table className="min-w-full divide-y divide-blue-100 bg-white">
                     <thead>
                       <tr className="bg-blue-100">
                         <th className="px-4 py-2 text-left text-xs font-bold text-blue-900 uppercase">Categoría</th>
@@ -307,31 +302,23 @@ export default function ReporteSubdiario() {
                     </thead>
                     <tbody>
                       {categoriasConDatos.map((cat, idx) => {
-                        // Solo una estación/caja por categoría
                         const p = cat.productos[0];
                         return (
-                          <tr key={cat.categoria + idx} className="hover:bg-blue-50">
+                          <tr key={cat.categoria + idx} className="hover:bg-blue-50 transition">
                             <td className="px-4 py-2 font-semibold text-blue-900">{cat.categoria}</td>
-                            <td className="px-4 py-2 text-gray-700 text-xs">
-                              {cat.productos.map((p) => p.nombre).join(", ")}
+                            <td className="px-4 py-2 text-blue-900 text-sm">
+                              {cat.productos.map((p, i) => (
+                                <span key={p.nombre + i}>
+                                  {p.nombre}
+                                  {i < cat.productos.length - 1 && ", "}
+                                </span>
+                              ))}
                             </td>
-                            <td className="px-4 py-2">
-                              <span
-                                className="bg-blue-100 text-blue-800 rounded-full px-2 py-0.5 text-xs font-medium max-w-[110px] truncate"
-                                title={p.nombre_estacion || "Sin estación"}
-                                style={{ display: "inline-block" }}
-                              >
-                                {p.nombre_estacion || "Sin estación"}
-                              </span>
+                            <td className="px-4 py-2 text-sm text-blue-900" title={p.nombre_estacion || "Sin estación"}>
+                              {p.nombre_estacion || "Sin estación"}
                             </td>
-                            <td className="px-4 py-2">
-                              <span
-                                className="bg-green-100 text-green-800 rounded-full px-2 py-0.5 text-xs font-medium max-w-[90px] truncate"
-                                title={p.nombre_caja || "Sin caja"}
-                                style={{ display: "inline-block" }}
-                              >
-                                {p.nombre_caja || "Sin caja"}
-                              </span>
+                            <td className="px-4 py-2 text-sm text-blue-900" title={p.nombre_caja || "Sin caja"}>
+                              {p.nombre_caja || "Sin caja"}
                             </td>
                             <td className="px-4 py-2 text-right text-blue-700 font-semibold">
                               {cat.totalLitros.toLocaleString("es-AR")}
@@ -353,34 +340,34 @@ export default function ReporteSubdiario() {
         )}
       </div>
 
-      {/* Paginación abajo */}
+      {/* Paginación */}
       {totalPaginas > 1 && (
         <div className="flex items-center justify-center mt-8 gap-4">
           <button
             onClick={() => setPagina((p) => Math.max(p - 1, 0))}
             disabled={pagina === 0}
-            className="px-3 py-2 rounded-full bg-blue-100 text-blue-700 font-bold disabled:opacity-50"
+            className="px-3 py-2 bg-gray-100 text-gray-700 font-bold disabled:opacity-50"
           >
             ◀
           </button>
-          <div className="font-bold text-blue-900 text-lg">
+          <div className="font-bold text-gray-900 text-lg">
             Página {pagina + 1} de {totalPaginas}
           </div>
           <button
             onClick={() => setPagina((p) => (p + 1 < totalPaginas ? p + 1 : p))}
             disabled={pagina + 1 >= totalPaginas}
-            className="px-3 py-2 rounded-full bg-blue-100 text-blue-700 font-bold disabled:opacity-50"
+            className="px-3 py-2 bg-gray-100 text-gray-700 font-bold disabled:opacity-50"
           >
             ▶
           </button>
         </div>
       )}
 
-      {/* Total general abajo */}
-      <div className="text-right font-extrabold text-blue-900 text-xl mt-12 mb-8 border-t-2 border-blue-200 pt-6">
-        TOTAL GENERAL: ${totalGeneral.toLocaleString("es-AR")}
+      {/* Total general */}
+      <div className="text-right font-bold text-gray-900 text-xl mt-12 mb-8 border-t border-gray-200 pt-6">
+        TOTAL GENERAL: <span className="text-green-700">${totalGeneral.toLocaleString("es-AR")}</span>
         <br />
-        TOTAL LITROS: {totalLitrosGeneral.toLocaleString("es-AR")}
+        TOTAL LITROS: <span className="text-blue-700">{totalLitrosGeneral.toLocaleString("es-AR")}</span>
       </div>
     </div>
   );
