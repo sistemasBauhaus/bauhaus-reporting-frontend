@@ -88,6 +88,13 @@ const Dashboard: React.FC = () => {
     // eslint-disable-next-line
   }, []);
 
+  useEffect(() => {
+    if (grupos.length) {
+      const cats = Array.from(new Set(grupos.map(g => g.categoria)));
+      console.log("Categorías en los datos:", cats);
+    }
+  }, [grupos]);
+
   const handleBuscar = () => fetchData();
   const handleLimpiar = () => {
     setFechaMes('');

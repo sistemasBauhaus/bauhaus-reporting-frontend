@@ -42,6 +42,7 @@ export default function ReporteSubdiario() {
 
       const res = await fetch(`${API_URL}/reportes/subdiario?${params.toString()}`);
       const json = await res.json();
+      console.log("Respuesta completa de la API:", json); // <-- LOG PRINCIPAL
       if (!json.ok) throw new Error("Error al obtener datos");
       setData(json.data);
     } catch (err: any) {
@@ -53,8 +54,7 @@ export default function ReporteSubdiario() {
 
   useEffect(() => {
     fetchData();
-    // eslint-disable-next-line
-  }, []);
+  }, [fechaInicio, fechaFin, categoriaActiva]);
 
   // Fechas únicas ordenadas (todas las filtradas o los últimos 10 días si no hay filtro)
   const fechasUnicas = useMemo(() => {
@@ -100,7 +100,7 @@ export default function ReporteSubdiario() {
   const dataFiltrada = data.filter((d) => {
     if (categoriaActiva && d.categoria !== categoriaActiva) return false;
     if (estacionFiltro && d.nombre_estacion !== estacionFiltro) return false;
-    if (cajaFiltro && d.nombre_caja !== cajaFiltro) return false;
+    if (cajaFiltro && `${d.nombre_caja} - ${d.nombre_estacion}` !== cajaFiltro) return false;
     return true;
   });
 
@@ -139,7 +139,7 @@ export default function ReporteSubdiario() {
     setFechaFin("");
     setCategoriaActiva(null);
     setPagina(0);
-    fetchData();
+    fetchData(); // <-- Recarga los datos sin filtros
   };
 
   const handleFechaInicio = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -152,6 +152,21 @@ export default function ReporteSubdiario() {
     const value = e.target.value;
     setFechaFin(value);
     if (fechaInicio && value < fechaInicio) setFechaInicio(value);
+  };
+
+  // Cuando cambias estación, caja o categoría:
+  const handleFiltro = (filtro: "estacion" | "caja" | "categoria", valor: string | null) => {
+    if (
+      (filtro === "estacion" && valor === "") ||
+      (filtro === "caja" && valor === "") ||
+      (filtro === "categoria" && valor === null)
+    ) {
+      handleLimpiar();
+    } else {
+      if (filtro === "estacion") setEstacionFiltro(valor as string);
+      if (filtro === "caja") setCajaFiltro(valor as string);
+      if (filtro === "categoria") setCategoriaActiva(valor as string | null);
+    }
   };
 
   // Si cambia el filtro de fechas y la página queda fuera de rango, la ajusta
@@ -198,10 +213,11 @@ export default function ReporteSubdiario() {
           />
         </div>
         <div>
-          <label className="block text-gray-700 font-medium mb-1 text-xs">Estación</label>
+          <label className="block text-gray-700 font-medium mb-1 text-xs" htmlFor="estacion">Estación</label>
           <select
+            id="estacion"
             value={estacionFiltro}
-            onChange={e => setEstacionFiltro(e.target.value)}
+            onChange={e => handleFiltro("estacion", e.target.value)}
             className="border border-gray-300 px-3 py-2 text-gray-900 text-base focus:outline-none focus:ring-2 focus:ring-blue-300"
           >
             <option value="">Todas las estaciones</option>
@@ -211,10 +227,11 @@ export default function ReporteSubdiario() {
           </select>
         </div>
         <div>
-          <label className="block text-gray-700 font-medium mb-1 text-xs">Caja</label>
+          <label className="block text-gray-700 font-medium mb-1 text-xs" htmlFor="caja">Caja</label>
           <select
+            id="caja"
             value={cajaFiltro}
-            onChange={e => setCajaFiltro(e.target.value)}
+            onChange={e => handleFiltro("caja", e.target.value)}
             className="border border-gray-300 px-3 py-2 text-gray-900 text-base focus:outline-none focus:ring-2 focus:ring-blue-300"
           >
             <option value="">Todas las cajas</option>
@@ -240,7 +257,7 @@ export default function ReporteSubdiario() {
       {/* Chips de categorías */}
       <div className="flex flex-wrap gap-2 justify-center mb-8">
         <button
-          onClick={() => setCategoriaActiva(null)}
+          onClick={() => handleFiltro("categoria", null)}
           className={`px-4 py-1 font-semibold transition ${
             categoriaActiva === null
               ? "bg-blue-600 text-white"
@@ -306,7 +323,7 @@ export default function ReporteSubdiario() {
                         return (
                           <tr key={cat.categoria + idx} className="hover:bg-blue-50 transition">
                             <td className="px-4 py-2 font-semibold text-blue-900">{cat.categoria}</td>
-                            <td className="px-4 py-2 text-blue-900 text-sm">
+                            <td>
                               <ProductoDesplegable productos={cat.productos} />
                             </td>
                             <td className="px-4 py-2 text-sm text-blue-900" title={p.nombre_estacion || "Sin estación"}>
