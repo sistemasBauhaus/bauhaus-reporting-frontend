@@ -217,21 +217,6 @@ const Dashboard: React.FC = () => {
               ))}
             </tbody>
           </table>
-
-          {/* 🔹 Gráfico resumen */}
-          <div className="h-[300px] p-6">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={resumenMensual}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="tipo" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="total_importe" name="Importe ($)" fill="#1e3a8a" />
-                <Bar dataKey="total_cantidad" name="Litros" fill="#60a5fa" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
         </div>
 
         {/* 🔹 Tabla resumen por categoría */}
@@ -265,13 +250,21 @@ const Dashboard: React.FC = () => {
         <div className="mb-12">
           {meses.map(mes => {
             const gruposMes = gruposPorMes[mes];
+            // Agrupa por categoría y calcula totales, método de pago y surtidor
             const categoriasMes = Array.from(new Set(gruposMes.map(g => g.categoria)));
             const resumenPorCategoria = categoriasMes.map(cat => {
               const items = gruposMes.filter(g => g.categoria === cat);
               const litros = items.reduce((a, b) => a + b.litros, 0);
               const monto = items.reduce((a, b) => a + b.monto, 0);
-              const promedio = monto / (litros || 1);
-              return { categoria: cat, litros, monto, promedio };
+              const metodos = Array.from(new Set(items.map(i => i.metodo_pago).filter(Boolean)));
+              const surtidores = Array.from(new Set(items.map(i => i.nro_surtidor).filter(Boolean)));
+              return {
+                categoria: cat,
+                litros,
+                monto,
+                metodo_pago: metodos.length === 1 ? metodos[0] : (metodos.length === 0 ? "-" : "Varios"),
+                nro_surtidor: surtidores.length === 1 ? surtidores[0] : (surtidores.length === 0 ? "-" : "Varios")
+              };
             });
             const totalMes = gruposMes.reduce((a, b) => a + b.monto, 0);
             const litrosMes = gruposMes.reduce((a, b) => a + b.litros, 0);
@@ -293,7 +286,8 @@ const Dashboard: React.FC = () => {
                       <th className="py-3 px-6 text-left font-semibold">Categoría</th>
                       <th className="py-3 px-6 text-right font-semibold">Litros</th>
                       <th className="py-3 px-6 text-right font-semibold">Monto</th>
-                      <th className="py-3 px-6 text-right font-semibold">Promedio</th>
+                      <th className="py-3 px-6 text-right font-semibold">Método de Pago</th>
+                      <th className="py-3 px-6 text-right font-semibold">Nro Surtidor</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -302,7 +296,8 @@ const Dashboard: React.FC = () => {
                         <td className="py-3 px-6">{r.categoria}</td>
                         <td className="py-3 px-6 text-right">{r.litros.toLocaleString()}</td>
                         <td className="py-3 px-6 text-right">${r.monto.toLocaleString()}</td>
-                        <td className="py-3 px-6 text-right">${r.promedio.toFixed(2)}</td>
+                        <td className="py-3 px-6 text-right">{r.metodo_pago}</td>
+                        <td className="py-3 px-6 text-right">{r.nro_surtidor}</td>
                       </tr>
                     ))}
                   </tbody>
