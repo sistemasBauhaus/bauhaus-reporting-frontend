@@ -307,12 +307,7 @@ export default function ReporteSubdiario() {
                           <tr key={cat.categoria + idx} className="hover:bg-blue-50 transition">
                             <td className="px-4 py-2 font-semibold text-blue-900">{cat.categoria}</td>
                             <td className="px-4 py-2 text-blue-900 text-sm">
-                              {cat.productos.map((p, i) => (
-                                <span key={p.nombre + i}>
-                                  {p.nombre}
-                                  {i < cat.productos.length - 1 && ", "}
-                                </span>
-                              ))}
+                              <ProductoDesplegable productos={cat.productos} />
                             </td>
                             <td className="px-4 py-2 text-sm text-blue-900" title={p.nombre_estacion || "Sin estación"}>
                               {p.nombre_estacion || "Sin estación"}
@@ -369,6 +364,34 @@ export default function ReporteSubdiario() {
         <br />
         TOTAL LITROS: <span className="text-blue-700">{totalLitrosGeneral.toLocaleString("es-AR")}</span>
       </div>
+    </div>
+  );
+}
+
+function ProductoDesplegable({ productos }: { productos: RegistroSubdiario[] }) {
+  const [open, setOpen] = useState(false);
+
+  if (productos.length === 0) return null;
+  if (productos.length === 1) return <span>{productos[0].nombre}</span>;
+
+  return (
+    <div>
+      <button
+        type="button"
+        className="text-blue-700 underline text-xs"
+        onClick={() => setOpen((o) => !o)}
+      >
+        {open ? "Ocultar productos" : `Ver productos (${productos.length})`}
+      </button>
+      {open && (
+        <ul className="mt-2 bg-blue-50 rounded p-2 shadow text-xs space-y-1">
+          {productos.map((p, i) => (
+            <li key={p.nombre + i} className="pl-2 list-disc list-inside">
+              {p.nombre}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
