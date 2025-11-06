@@ -13,6 +13,15 @@ interface RegistroSubdiario {
 
 const DIAS_POR_VISTA = 10;
 const productosSinLitros = ["SHOP", "GOLOSINAS", "BEBIDAS", "Golosinas/Bebidas"];
+const combustiblesLiquidos = [
+  "SUPER",
+  "QUANTIUM NAFTA",
+  "QUANTIUM DIESEL",
+  "DIESEL X10",
+  "ECO BLUE",
+  "GNC",
+  "GNC AC"
+];
 
 export default function ReporteSubdiario() {
   const [data, setData] = useState<RegistroSubdiario[]>([]);
@@ -94,55 +103,56 @@ export default function ReporteSubdiario() {
     // eslint-disable-next-line
   }, [fechaInicio, fechaFin, defaultInicio, defaultFin]);
 
-  // Filtro por fecha y producto (con fecha Argentina)
+  // Filtro por fecha y producto (usa fecha local Argentina tal como viene del backend)
   const registrosFiltrados = useMemo(() => {
     let filtrados = data;
     if (fechaInicio && fechaFin) {
       filtrados = filtrados.filter(item => {
-        const fechaArg = new Date(
-          new Date(item.fecha).toLocaleString("en-US", { timeZone: "America/Argentina/Buenos_Aires" })
-        );
-        const fechaStr = fechaArg.toISOString().split("T")[0];
-        return fechaStr >= fechaInicio && fechaStr <= fechaFin;
+        // Usa directamente la fecha que viene del backend (ya es local)
+        return item.fecha >= fechaInicio && item.fecha <= fechaFin;
       });
-      console.log("Filtrados por fecha:", filtrados);
     }
     if (productoFiltro !== "TODOS") {
       filtrados = filtrados.filter(item => item.nombre === productoFiltro);
-      console.log("Filtrados por producto:", filtrados);
     }
     return filtrados;
   }, [data, fechaInicio, fechaFin, productoFiltro]);
+  console.log("Filtrados por fecha:", registrosFiltrados);
 
-  // Productos únicos en los datos filtrados
   const productos = useMemo(() => {
-    return Array.from(new Set(registrosFiltrados.map(d => d.nombre)));
+    const productosEnDatos = Array.from(new Set(registrosFiltrados.map(d => d.nombre)));
+    // Solo incluye combustibles líquidos y productosSinLitros, excluye lubricantes y otros
+    return [
+      ...combustiblesLiquidos.filter(prod => productosEnDatos.includes(prod)),
+      ...productosSinLitros.filter(prod => productosEnDatos.includes(prod)),
+    ];
   }, [registrosFiltrados]);
+  console.log("Productos para columnas:", productos);
 
-  // Agrupa por fecha y suma montos por producto (usando fecha Argentina)
+  // Agrupa por fecha local (sin conversión)
   const datosPorFecha = useMemo(() => {
     const agrupado: Record<string, any> = {};
     registrosFiltrados.forEach(item => {
-      const fechaArg = new Date(
-        new Date(item.fecha).toLocaleString("en-US", { timeZone: "America/Argentina/Buenos_Aires" })
-      );
-      const fecha = fechaArg.toISOString().split("T")[0];
+      const fecha = item.fecha;
       if (!agrupado[fecha]) {
         agrupado[fecha] = { fecha };
         productos.forEach(prod => {
           agrupado[fecha][`${prod}_litros`] = 0;
           agrupado[fecha][`${prod}_importe`] = 0;
-          agrupado[fecha][`${prod}_efectivo`] = 0;
-          agrupado[fecha][`${prod}_ventas`] = 0;
         });
       }
       agrupado[fecha][`${item.nombre}_litros`] += item.litros;
       agrupado[fecha][`${item.nombre}_importe`] += item.importe;
-      agrupado[fecha][`${item.nombre}_efectivo`] += item.total_efectivo_recaudado || 0;
-      agrupado[fecha][`${item.nombre}_ventas`] += item.importe_ventas_totales_contado || 0;
+    });
+    Object.values(agrupado).forEach(fila => {
+      productos.forEach(prod => {
+        if (typeof fila[`${prod}_litros`] !== "number") fila[`${prod}_litros`] = 0;
+        if (typeof fila[`${prod}_importe`] !== "number") fila[`${prod}_importe`] = 0;
+      });
     });
     return Object.values(agrupado).sort((a: any, b: any) => a.fecha.localeCompare(b.fecha));
   }, [registrosFiltrados, productos]);
+  console.log("Datos agrupados por fecha:", datosPorFecha);
 
   // Subtotales por producto
   const subtotal = useMemo(() => {
@@ -150,23 +160,26 @@ export default function ReporteSubdiario() {
     productos.forEach(prod => {
       base[`${prod}_litros`] = 0;
       base[`${prod}_importe`] = 0;
-      base[`${prod}_efectivo`] = 0;
-      base[`${prod}_ventas`] = 0;
     });
-    base.total_efectivo_recaudado = 0;
-    base.importe_ventas_totales_contado = 0;
     datosPorFecha.forEach(fila => {
       productos.forEach(prod => {
         base[`${prod}_litros`] += fila[`${prod}_litros`] || 0;
         base[`${prod}_importe`] += fila[`${prod}_importe`] || 0;
-        base[`${prod}_efectivo`] += fila[`${prod}_efectivo`] || 0;
-        base[`${prod}_ventas`] += fila[`${prod}_ventas`] || 0;
       });
-      base.total_efectivo_recaudado += fila[`${productos[0]}_efectivo`] || 0;
-      base.importe_ventas_totales_contado += fila[`${productos[0]}_ventas`] || 0;
     });
     return base;
   }, [datosPorFecha, productos]);
+
+  // Suma total de importe de combustibles líquidos
+  const totalImporteLiquidos = useMemo(() => {
+    let total = 0;
+    datosPorFecha.forEach(fila => {
+      combustiblesLiquidos.forEach(prod => {
+        total += fila[`${prod}_importe`] || 0;
+      });
+    });
+    return total;
+  }, [datosPorFecha]);
 
   // Paginación
   const fechasUnicas = datosPorFecha.map(f => f.fecha);
@@ -261,25 +274,17 @@ export default function ReporteSubdiario() {
         <table className="w-full min-w-full border-separate border-spacing-0 border border-blue-400 rounded-lg shadow-lg text-base bg-white">
           <thead>
             <tr className="bg-blue-700 text-white text-center">
-              <th rowSpan={2} className="px-4 py-7 font-semibold border border-blue-400">Fecha</th>
+              <th rowSpan={2} className="px-3 py-4 font-semibold border border-blue-400">Fecha</th>
               {productos.map(prod => (
-                <th key={prod} colSpan={productosSinLitros.includes(prod) ? 3 : 4} className="px-4 py-7 font-semibold border border-blue-400">{prod}</th>
+                <th key={prod + "_head"} colSpan={2} className="px-3 py-4 font-semibold border border-blue-400">{prod}</th>
               ))}
             </tr>
             <tr className="bg-blue-600 text-white text-center">
               {productos.map(prod => (
-                productosSinLitros.includes(prod)
-                  ? <>
-                      <th key={prod + "_i"} className="px-4 py-5 font-normal border border-blue-400">Importe</th>
-                      <th key={prod + "_e"} className="px-4 py-5 font-normal border border-blue-400">Efectivo</th>
-                      <th key={prod + "_v"} className="px-4 py-5 font-normal border border-blue-400">Ventas Totales Contado</th>
-                    </>
-                  : <>
-                      <th key={prod + "_l"} className="px-4 py-5 font-normal border border-blue-400">Litros</th>
-                      <th key={prod + "_i"} className="px-4 py-5 font-normal border border-blue-400">Importe</th>
-                      <th key={prod + "_e"} className="px-4 py-5 font-normal border border-blue-400">Efectivo</th>
-                      <th key={prod + "_v"} className="px-4 py-5 font-normal border border-blue-400">Ventas Totales Contado</th>
-                    </>
+                <>
+                  <th key={prod + "_litros"} className="px-3 py-2 font-normal border border-blue-400">Litros</th>
+                  <th key={prod + "_importe"} className="px-3 py-2 font-normal border border-blue-400">Importe</th>
+                </>
               ))}
             </tr>
           </thead>
@@ -287,79 +292,58 @@ export default function ReporteSubdiario() {
             {fechasMostradas.map(fecha => {
               const fila = datosPorFecha.find(f => f.fecha === fecha);
               if (!fila) return null;
+              // Log para ver la fila completa por fecha
+              console.log("Fila para fecha", fecha, fila);
               return (
-                <tr key={fecha} className="odd:bg-white even:bg-blue-50 text-right hover:bg-blue-100 transition border-b-2 border-blue-300">
-                  <td className="text-left px-4 py-7 font-medium text-blue-900 border border-blue-400">
+                <tr key={fecha} className="odd:bg-white even:bg-blue-50 text-right hover:bg-blue-100 transition border-b-2 border-blue-300 text-base">
+                  <td className="text-left px-3 py-4 font-medium text-blue-900 border border-blue-400">
                     {new Date(fila.fecha).toLocaleDateString("es-AR", {
                       day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                      timeZone: "America/Argentina/Buenos_Aires"
+                      month: "short"
                     })}
                   </td>
                   {productos.map(prod => (
-                    productosSinLitros.includes(prod)
-                      ? <>
-                          <td key={prod + "_i"} className="border border-blue-400 px-4 py-7 text-green-700 font-semibold">
-                            ${fila[`${prod}_importe`]?.toLocaleString("es-AR")}
-                          </td>
-                          <td key={prod + "_e"} className="border border-blue-400 px-4 py-7">
-                            ${fila[`${prod}_efectivo`]?.toLocaleString("es-AR")}
-                          </td>
-                          <td key={prod + "_v"} className="border border-blue-400 px-4 py-7">
-                            ${fila[`${prod}_ventas`]?.toLocaleString("es-AR")}
-                          </td>
-                        </>
-                      : <>
-                          <td key={prod + "_l"} className="border border-blue-400 px-4 py-7">
-                            {fila[`${prod}_litros`]?.toLocaleString("es-AR")}
-                          </td>
-                          <td key={prod + "_i"} className="border border-blue-400 px-4 py-7 text-green-700 font-semibold">
-                            ${fila[`${prod}_importe`]?.toLocaleString("es-AR")}
-                          </td>
-                          <td key={prod + "_e"} className="border border-blue-400 px-4 py-7">
-                            ${fila[`${prod}_efectivo`]?.toLocaleString("es-AR")}
-                          </td>
-                          <td key={prod + "_v"} className="border border-blue-400 px-4 py-7">
-                            ${fila[`${prod}_ventas`]?.toLocaleString("es-AR")}
-                          </td>
-                        </>
+                    <>
+                      <td key={prod + "_l"} className="border border-blue-400 px-3 py-4">
+                        {combustiblesLiquidos.includes(prod)
+                          ? fila[`${prod}_litros`]?.toLocaleString("es-AR")
+                          : ""}
+                      </td>
+                      <td key={prod + "_i"} className="border border-blue-400 px-3 py-4 text-green-700 font-semibold">
+                        ${fila[`${prod}_importe`]?.toLocaleString("es-AR")}
+                      </td>
+                    </>
                   ))}
                 </tr>
               );
             })}
           </tbody>
-          <tfoot className="bg-blue-200 font-bold">
+          <tfoot className="bg-blue-200 font-bold text-base">
             <tr>
-              <td className="px-4 py-7 text-left border border-blue-400">{subtotal.fecha}</td>
+              <td className="px-3 py-4 text-left border border-blue-400">Subtotal</td>
               {productos.map(prod => (
-                productosSinLitros.includes(prod)
-                  ? <>
-                      <td key={prod + "_i_t"} className="border border-blue-400 px-4 py-7">
-                        ${subtotal[`${prod}_importe`]?.toLocaleString("es-AR")}
-                      </td>
-                      <td key={prod + "_e_t"} className="border border-blue-400 px-4 py-7">
-                        ${subtotal[`${prod}_efectivo`]?.toLocaleString("es-AR")}
-                      </td>
-                      <td key={prod + "_v_t"} className="border border-blue-400 px-4 py-7">
-                        ${subtotal[`${prod}_ventas`]?.toLocaleString("es-AR")}
-                      </td>
-                    </>
-                  : <>
-                      <td key={prod + "_l_t"} className="border border-blue-400 px-4 py-7">
-                        {subtotal[`${prod}_litros`]?.toLocaleString("es-AR")}
-                      </td>
-                      <td key={prod + "_i_t"} className="border border-blue-400 px-4 py-7">
-                        ${subtotal[`${prod}_importe`]?.toLocaleString("es-AR")}
-                      </td>
-                      <td key={prod + "_e_t"} className="border border-blue-400 px-4 py-7">
-                        ${subtotal[`${prod}_efectivo`]?.toLocaleString("es-AR")}
-                      </td>
-                      <td key={prod + "_v_t"} className="border border-blue-400 px-4 py-7">
-                        ${subtotal[`${prod}_ventas`]?.toLocaleString("es-AR")}
-                      </td>
-                    </>
+                <>
+                  <td key={prod + "_l_t"} className="border border-blue-400 px-3 py-4">
+                    {combustiblesLiquidos.includes(prod)
+                      ? subtotal[`${prod}_litros`]?.toLocaleString("es-AR")
+                      : ""}
+                  </td>
+                  <td key={prod + "_i_t"} className="border border-blue-400 px-3 py-4">
+                    ${subtotal[`${prod}_importe`]?.toLocaleString("es-AR")}
+                  </td>
+                </>
               ))}
+            </tr>
+            <tr>
+              <td
+                className="px-3 py-5 text-center border-t-4 border-blue-700 bg-blue-700 text-white font-extrabold text-lg"
+                colSpan={productos.length * 2 + 1}
+              >
+                TOTAL IMPORTE COMBUSTIBLES LÍQUIDOS:&nbsp;
+                <span className="text-green-600 drop-shadow-lg">
+                  ${totalImporteLiquidos.toLocaleString("es-AR")}
+                </span>
+              </td>
             </tr>
           </tfoot>
         </table>
@@ -382,14 +366,6 @@ export default function ReporteSubdiario() {
         >
           Siguiente →
         </button>
-      </div>
-      <div className="flex flex-col md:flex-row justify-center items-center gap-8 mt-8 mb-12">
-        <div className="bg-blue-100 rounded-lg shadow px-6 py-4 text-xl font-bold text-blue-900 border border-blue-300">
-          Total Efectivo Recaudado: <span className="text-green-700">${subtotal.total_efectivo_recaudado?.toLocaleString("es-AR")}</span>
-        </div>
-        <div className="bg-blue-100 rounded-lg shadow px-6 py-4 text-xl font-bold text-blue-900 border border-blue-300">
-          Ventas Totales Contado: <span className="text-green-700">${subtotal.importe_ventas_totales_contado?.toLocaleString("es-AR")}</span>
-        </div>
       </div>
     </div>
   );
