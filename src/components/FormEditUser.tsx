@@ -57,10 +57,6 @@ const FormEditUser: React.FC<Props> = ({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setForm(usuario);
-  }, [usuario]);
-
-  useEffect(() => {
     async function fetchData() {
       try {
         const empresasResponse = await getEmpresas();
@@ -76,6 +72,16 @@ const FormEditUser: React.FC<Props> = ({
     }
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (empresasData.length > 0 && rolesData.length > 0 && usuario) {
+      setForm({
+        ...usuario,
+        empresa_id: usuario.empresa_id,
+        rol_id: usuario.rol_id,
+      });
+    }
+  }, [usuario, empresasData, rolesData]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -125,7 +131,15 @@ const FormEditUser: React.FC<Props> = ({
     onCancel();
   };
 
-  if (loading) return <div>Cargando...</div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[200px] bg-white">
+        <span className="text-blue-700 text-sm font-medium animate-pulse px-2 py-1">
+          Cargando datos de usuario...
+        </span>
+      </div>
+    );
+  }
 
   return (
     <>

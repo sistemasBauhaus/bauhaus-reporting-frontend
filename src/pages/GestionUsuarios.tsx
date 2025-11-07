@@ -194,14 +194,13 @@ const handleAddSave = async (nuevoUsuario: NuevoUsuario) => {
         Gestión de Usuarios
       </h1>
       <div className="flex justify-end mb-6">
-        <Button
-          variant="contained"
-          color="primary"
+        <button
+          className="px-4 py-2 rounded bg-blue-700 text-white font-semibold shadow hover:bg-blue-900 transition mr-4"
+          style={{ marginRight: '5rem' }}
           onClick={handleAgregar}
-          sx={{ borderRadius: 2, fontSize: 14, px: 2, py: 0.5, minWidth: 0, height: 36 }}
         >
           Agregar Usuario
-        </Button>
+        </button>
       </div>
       {/* 🎛️ Filtros */}
       <div className="flex flex-wrap gap-4 items-center justify-center mb-8 p-4 bg-white rounded-xl shadow-md border border-blue-200">
@@ -298,9 +297,9 @@ const handleAddSave = async (nuevoUsuario: NuevoUsuario) => {
                       <Avatar
                         sx={{
                           bgcolor: usuario.activo ? 'primary.main' : 'grey.400',
-                          width: 48,
-                          height: 48,
-                          fontSize: 22,
+                          width: 36,           // más chico
+                          height: 36,          // más chico
+                          fontSize: 16,        // más chico
                           fontWeight: 700,
                           boxShadow: 2
                         }}
@@ -319,27 +318,27 @@ const handleAddSave = async (nuevoUsuario: NuevoUsuario) => {
                   <TableCell sx={{ fontSize: 15 }}>{usuario.rol || '-'}</TableCell>
                   <TableCell align="center">
                     {usuario.activo ? (
-                      <PersonIcon color="success" fontSize="large" titleAccess="Usuario activo" />
+                      <PersonIcon color="success" fontSize="medium" titleAccess="Usuario activo" />
                     ) : (
-                      <PersonOffIcon color="error" fontSize="large" titleAccess="Usuario inactivo" />
+                      <PersonOffIcon color="error" fontSize="medium" titleAccess="Usuario inactivo" />
                     )}
                   </TableCell>
                   <TableCell align="center">
                     <Tooltip title="Editar">
-                      <IconButton color="primary" size="large" onClick={() => handleEditar(usuario)}>
-                        <EditNoteIcon fontSize="large" />
+                      <IconButton color="primary" size="medium" onClick={() => handleEditar(usuario)}>
+                        <EditNoteIcon fontSize="medium" />
                       </IconButton>
                     </Tooltip>
                     {usuario.activo ? (
                       <Tooltip title="Inactivar">
-                        <IconButton color="error" size="large" onClick={() => openModal(usuario, 'inactivar')}>
-                          <PersonOffIcon fontSize="large" />
+                        <IconButton color="error" size="medium" onClick={() => openModal(usuario, 'inactivar')}>
+                          <PersonOffIcon fontSize="medium" />
                         </IconButton>
                       </Tooltip>
                     ) : (
                       <Tooltip title="Activar">
-                        <IconButton color="success" size="large" onClick={() => openModal(usuario, 'activar')}>
-                          <PersonIcon fontSize="large" />
+                        <IconButton color="success" size="medium" onClick={() => openModal(usuario, 'activar')}>
+                          <PersonIcon fontSize="medium" />
                         </IconButton>
                       </Tooltip>
                     )}
@@ -392,7 +391,7 @@ const handleAddSave = async (nuevoUsuario: NuevoUsuario) => {
 
       {/* Modal de edición */}
       <Dialog open={editModal.open} onClose={handleEditCancel} maxWidth="sm" fullWidth>
-        <DialogTitle>Editar usuario</DialogTitle>
+     
         <DialogContent>
           {editModal.usuario && (
             <FormEditUser
@@ -408,7 +407,7 @@ const handleAddSave = async (nuevoUsuario: NuevoUsuario) => {
 
       {/* Modal de agregar usuario */}
       <Dialog open={addModal.open} onClose={handleAddCancel} maxWidth="sm" fullWidth>
-        <DialogTitle>Agregar usuario</DialogTitle>
+      
         <DialogContent>
           <FormAddUser
             onSave={handleAddSave}
