@@ -10,6 +10,7 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   // Elimina el token al cargar el componente
@@ -27,6 +28,7 @@ const Login: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true); // <-- empieza cargando
     try {
       const data = await login(email, password);
       console.log('Login API data:', data); // <-- Nuevo log
@@ -45,6 +47,7 @@ const Login: React.FC = () => {
     } catch (err: any) {
       setError(err.message || 'Error al iniciar sesión');
     }
+    setLoading(false); // <-- termina cargando
   };
 
   return (
@@ -102,11 +105,15 @@ const Login: React.FC = () => {
               <Button
                 type="submit"
                 variant="primary"
-                className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition font-semibold text-xl"
+                className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition font-semibold text-xl flex items-center justify-center"
+                disabled={loading}
               >
-                Ingresar
+                {loading ? (
+                  <span className="animate-pulse text-base">Cargando...</span>
+                ) : (
+                  'Ingresar'
+                )}
               </Button>
-             
             </div>
           </form>
         </div>
