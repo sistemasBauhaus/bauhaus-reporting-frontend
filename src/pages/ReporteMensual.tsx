@@ -209,7 +209,7 @@ export default function ReporteSubdiario() {
   };
 
   return (
-    <div className="w-full max-w-none mx-auto mt-10 px-2 overflow-x-auto bg-gradient-to-br from-blue-50 via-white to-blue-100 min-h-screen">
+    <div className="w-full max-w-none mx-auto mt-10 px-2 overflow-x-auto   min-h-screen">
       <h1 className="text-4xl font-extrabold text-center mb-8 text-blue-900 drop-shadow-lg tracking-tight">
         Subdiario de Caja
       </h1>

@@ -4,11 +4,13 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Layout from './components/Layout';
 import ReporteMensualComponent from './pages/ReporteMensual';
+import GestionUsuarios from './pages/GestionUsuarios';
 
 // Componente para proteger rutas
 const PrivateRoute = ({ children }: { children: ReactElement }) => {
   const token = localStorage.getItem('token');
-  return token ? children : <Navigate to="/login" replace />;
+  const usuario = localStorage.getItem('usuario');
+  return token || usuario ? children : <Navigate to="/login" replace />;
 };
 
 function App() {
@@ -31,6 +33,14 @@ function App() {
             element={
               <PrivateRoute>
                 <ReporteMensualComponent />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/usuarios"
+            element={
+              <PrivateRoute>
+                <GestionUsuarios />
               </PrivateRoute>
             }
           />

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FiMenu, FiChevronLeft, FiHome, FiBarChart2, FiSettings, FiLogOut } from "react-icons/fi";
+import { FiMenu, FiChevronLeft, FiHome, FiBarChart2, FiSettings, FiLogOut, FiUser } from "react-icons/fi";
 import { Link, useNavigate } from 'react-router-dom';
 
 const menuItems = [
@@ -7,7 +7,7 @@ const menuItems = [
   { label: 'Reporte Diario', icon: FiBarChart2, href: '/reporte-diario' },
  // { label: 'Empresas', icon: FiSettings, href: '/empresas' },
   //{ label: 'Roles', icon: FiSettings, href: '/roles' },
-  { label: 'Configuración', icon: FiSettings, href: '/configuracion' },
+ // { label: 'Configuración', icon: FiSettings, href: '/configuracion' },
 ];
 
 const Sidebar: React.FC = () => {
@@ -67,6 +67,17 @@ const Sidebar: React.FC = () => {
                 )}
               </Link>
             ))}
+            {/* Gestión de Usuarios - SIEMPRE abajo de todo, antes de cerrar sesión */}
+            <Link
+              to="/usuarios"
+              className={`flex items-center px-2 py-2 rounded-lg hover:bg-blue-800 transition w-full mt-auto
+                ${collapsed ? 'justify-center' : 'justify-start pl-4'}`}
+            >
+              {FiUser({ className: "text-lg" })}
+              {!collapsed && (
+                <span className="text-base ml-2">Gestión de Usuarios</span>
+              )}
+            </Link>
           </nav>
           {/* Logout */}
           <div className="py-6 border-t border-blue-800 flex flex-col items-center">

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FiEye, FiEyeOff } from "react-icons/fi";
 import { useNavigate } from 'react-router-dom';
 import Button from '../components/Button';
+import { login } from '../api/auth';
 
 
 const Login: React.FC = () => {
@@ -26,13 +27,24 @@ const Login: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (email !== 'sistemas@somosbauhaus.com.ar' || password !== 'Bauhaus2025') {
-      setError('Credenciales incorrectas');
-      return;
+    try {
+      const data = await login(email, password);
+      console.log('Login API data:', data); // <-- Nuevo log
+      localStorage.setItem('usuario', JSON.stringify(data.user));
+      if (data.empresa) localStorage.setItem('empresa', data.empresa);
+      if (data.rol) localStorage.setItem('rol', data.rol);
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+      }
+      if (data.ok && data.user) {
+        console.log('Navigating to /dashboard'); // <-- Nuevo log
+        navigate('/dashboard');
+      } else {
+        setError(data.message || 'Error al iniciar sesión');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Error al iniciar sesión');
     }
-    // Simula guardar el token ficticio
-    localStorage.setItem('token', 'fake-token');
-    navigate('/dashboard');
   };
 
   return (
