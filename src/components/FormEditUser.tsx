@@ -61,8 +61,9 @@ const FormEditUser: React.FC<Props> = ({
       try {
         const empresasResponse = await getEmpresas();
         const rolesResponse = await getRoles();
+        console.log('Empresas API:', empresasResponse);
+        console.log('Roles API:', rolesResponse);
         setEmpresas(Array.isArray(empresasResponse.empresas) ? empresasResponse.empresas : []);
-        // Ajusta aquí según la estructura real de rolesResponse
         setRoles(Array.isArray(rolesResponse.roles) ? rolesResponse.roles : Array.isArray(rolesResponse) ? rolesResponse : []);
       } catch (error) {
         setEmpresas([]);
@@ -74,8 +75,19 @@ const FormEditUser: React.FC<Props> = ({
   }, []);
 
   useEffect(() => {
-    if (empresasData.length > 0 && rolesData.length > 0 && usuario) {
+    if (
+      empresasData.length > 0 &&
+      rolesData.length > 0 &&
+      usuario &&
+      typeof usuario.empresa_id === 'number' &&
+      typeof usuario.rol_id === 'number'
+    ) {
       setForm({
+        ...usuario,
+        empresa_id: usuario.empresa_id,
+        rol_id: usuario.rol_id,
+      });
+      console.log('Form inicializado:', {
         ...usuario,
         empresa_id: usuario.empresa_id,
         rol_id: usuario.rol_id,
@@ -96,14 +108,14 @@ const FormEditUser: React.FC<Props> = ({
   const handleEmpresaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm(prev => ({
       ...prev,
-      empresa_id: Number(e.target.value),
+      empresa_id: Number(e.target.value), // fuerza a número
     }));
   };
 
   const handleRolChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm(prev => ({
       ...prev,
-      rol_id: Number(e.target.value),
+      rol_id: Number(e.target.value), // fuerza a número
     }));
   };
 
@@ -190,7 +202,7 @@ const FormEditUser: React.FC<Props> = ({
                   select
                   label="Empresa"
                   name="empresa_id"
-                  value={form.empresa_id} // <-- este valor viene del usuario
+                  value={form.empresa_id ?? empresasData[0]?.empresa_id ?? ''}
                   onChange={handleEmpresaChange}
                   fullWidth
                   variant="outlined"
@@ -198,7 +210,9 @@ const FormEditUser: React.FC<Props> = ({
                   size="medium"
                 >
                   {empresasData.map(emp => (
-                    <MenuItem key={emp.empresa_id} value={emp.empresa_id}>{emp.nombre}</MenuItem>
+                    <MenuItem key={emp.empresa_id} value={emp.empresa_id}>
+                      {emp.nombre}
+                    </MenuItem>
                   ))}
                 </TextField>
               </Box>
@@ -242,7 +256,7 @@ const FormEditUser: React.FC<Props> = ({
                   select
                   label="Rol"
                   name="rol_id"
-                  value={form.rol_id}
+                  value={form.rol_id ?? rolesData[0]?.rol_id ?? ''}
                   onChange={handleRolChange}
                   fullWidth
                   variant="outlined"
@@ -250,7 +264,9 @@ const FormEditUser: React.FC<Props> = ({
                   size="medium"
                 >
                   {rolesData.map(rol => (
-                    <MenuItem key={rol.rol_id} value={rol.rol_id}>{rol.nombre}</MenuItem>
+                    <MenuItem key={rol.rol_id} value={rol.rol_id}>
+                      {rol.nombre}
+                    </MenuItem>
                   ))}
                 </TextField>
               </Box>
