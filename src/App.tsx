@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import Layout from './components/Layout';
 import ReporteMensualComponent from './pages/ReporteMensual';
 import GestionUsuarios from './pages/GestionUsuarios';
+import ReportesView from './pages/ReportesView';
 
 // Componente para proteger rutas
 const PrivateRoute = ({ children }: { children: ReactElement }) => {
@@ -41,6 +42,14 @@ function App() {
             element={
               <PrivateRoute>
                 <GestionUsuarios />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/reportes"
+            element={
+              <PrivateRoute>
+                <ReportesView />
               </PrivateRoute>
             }
           />

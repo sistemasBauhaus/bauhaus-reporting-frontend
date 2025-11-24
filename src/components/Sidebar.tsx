@@ -1,13 +1,19 @@
 import React, { useState } from 'react';
-import { FiMenu, FiChevronLeft, FiHome, FiBarChart2, FiSettings, FiLogOut, FiUser } from "react-icons/fi";
+import { FiMenu, FiChevronLeft, FiHome, FiBarChart2, FiSettings, FiLogOut, FiUser, FiTrendingUp, FiDroplet, FiDollarSign, FiShoppingCart, FiFileText, FiMapPin } from "react-icons/fi";
 import { Link, useNavigate } from 'react-router-dom';
 
 const menuItems = [
   { label: 'Inicio', icon: FiHome, href: '/dashboard' },
   { label: 'Reporte Diario', icon: FiBarChart2, href: '/reporte-diario' },
- // { label: 'Empresas', icon: FiSettings, href: '/empresas' },
-  //{ label: 'Roles', icon: FiSettings, href: '/roles' },
- // { label: 'Configuración', icon: FiSettings, href: '/configuracion' },
+];
+
+const reportesItems = [
+  { label: 'Ventas por Producto', icon: FiTrendingUp, href: '/reportes?tipo=ventas-producto' },
+  { label: 'Niveles de Tanques', icon: FiDroplet, href: '/reportes?tipo=niveles-tanques' },
+  { label: 'Saldos Cuentas Corrientes', icon: FiDollarSign, href: '/reportes?tipo=saldos-cuentas' },
+  { label: 'Compras Discriminadas', icon: FiShoppingCart, href: '/reportes?tipo=compras-discriminadas' },
+  { label: 'Facturas Proveedores', icon: FiFileText, href: '/reportes?tipo=facturas-proveedores' },
+  { label: 'Unidades de la Empresa', icon: FiMapPin, href: '/reportes?tipo=unidades-empresa' },
 ];
 
 const Sidebar: React.FC = () => {
@@ -53,13 +59,14 @@ const Sidebar: React.FC = () => {
             </button>
           </div>
           {/* Menú */}
-          <nav className="flex-1 py-6 space-y-2 flex flex-col items-center">
+          <nav className="flex-1 py-6 space-y-2 flex flex-col items-center overflow-y-auto">
             {menuItems.map(item => (
               <Link
                 key={item.label}
                 to={item.href}
                 className={`flex items-center px-2 py-2 rounded-lg hover:bg-blue-800 transition w-full
                   ${collapsed ? 'justify-center' : 'justify-start pl-4'}`}
+                onClick={() => setOpen(false)}
               >
                 {item.icon({ className: "text-lg" })}
                 {!collapsed && (
@@ -67,11 +74,34 @@ const Sidebar: React.FC = () => {
                 )}
               </Link>
             ))}
+            
+            {/* Sección de Reportes */}
+            {!collapsed && (
+              <div className="w-full px-4 mt-4 mb-2">
+                <h3 className="text-xs font-semibold text-blue-300 uppercase tracking-wider">Reportes</h3>
+              </div>
+            )}
+            {reportesItems.map(item => (
+              <Link
+                key={item.label}
+                to={item.href}
+                className={`flex items-center px-2 py-2 rounded-lg hover:bg-blue-800 transition w-full
+                  ${collapsed ? 'justify-center' : 'justify-start pl-4'}`}
+                onClick={() => setOpen(false)}
+              >
+                {item.icon({ className: "text-lg" })}
+                {!collapsed && (
+                  <span className="text-sm ml-2">{item.label}</span>
+                )}
+              </Link>
+            ))}
+            
             {/* Gestión de Usuarios - SIEMPRE abajo de todo, antes de cerrar sesión */}
             <Link
               to="/usuarios"
               className={`flex items-center px-2 py-2 rounded-lg hover:bg-blue-800 transition w-full mt-auto
                 ${collapsed ? 'justify-center' : 'justify-start pl-4'}`}
+              onClick={() => setOpen(false)}
             >
               {FiUser({ className: "text-lg" })}
               {!collapsed && (

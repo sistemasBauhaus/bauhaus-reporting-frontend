@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { convertirImporte } from "../api/reportes";
 
 interface RegistroSubdiario {
   fecha: string;
@@ -77,11 +78,11 @@ export default function ReporteSubdiario() {
           fecha: d.fecha || d.Fecha,
           nombre: d.nombre || d.Nombre,
           litros: Number(d.litros || d.Litros || 0),
-          importe: Number(d.importe || d.Importe || 0),
+          importe: convertirImporte(Number(d.importe || d.Importe || 0)),
           nombre_estacion: d.nombre_estacion || d.NombreEstacion,
           nombre_caja: d.nombre_caja || d.NombreCaja,
-          total_efectivo_recaudado: Number(d.total_efectivo_recaudado || 0),
-          importe_ventas_totales_contado: Number(d.importe_ventas_totales_contado || 0),
+          total_efectivo_recaudado: convertirImporte(Number(d.total_efectivo_recaudado || 0)),
+          importe_ventas_totales_contado: convertirImporte(Number(d.importe_ventas_totales_contado || 0)),
         }))
         .filter((d: any) => d.importe > 0 || d.litros > 0);
 

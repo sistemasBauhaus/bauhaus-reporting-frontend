@@ -13,7 +13,7 @@ export async function fetchPcMensual(
   fechaInicio: string,
   fechaFin: string
 ): Promise<PcMensualBackend[]> {
-  const API_URL = process.env.REACT_APP_API_URL;
+  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:4000/api";
   const params = new URLSearchParams();
   if (fechaInicio) params.append("fechaInicio", fechaInicio);
   if (fechaFin) params.append("fechaFin", fechaFin);
@@ -50,7 +50,7 @@ export async function fetchPcResumenMensual(
   fechaInicio: string,
   fechaFin: string
 ): Promise<PcResumenMensual[]> {
-   const API_URL = process.env.REACT_APP_API_URL;
+   const API_URL = process.env.REACT_APP_API_URL || "http://localhost:4000/api";
   const params = new URLSearchParams();
   if (fechaInicio) params.append("fechaInicio", fechaInicio);
   if (fechaFin) params.append("fechaFin", fechaFin);
