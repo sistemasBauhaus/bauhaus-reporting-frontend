@@ -8,7 +8,7 @@ const menuItems = [
 ];
 
 const reportesItems = [
-  { label: 'Ventas por Producto', icon: FiTrendingUp, href: '/reportes?tipo=ventas-producto' },
+  { label: 'Ventas Diarias', icon: FiTrendingUp, href: '/reportes?tipo=ventas-producto' },
   { label: 'Niveles de Tanques', icon: FiDroplet, href: '/reportes?tipo=niveles-tanques' },
   { label: 'Saldos Cuentas Corrientes', icon: FiDollarSign, href: '/reportes?tipo=saldos-cuentas' },
   { label: 'Compras Discriminadas', icon: FiShoppingCart, href: '/reportes?tipo=compras-discriminadas' },

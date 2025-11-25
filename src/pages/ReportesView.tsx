@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import VentasPorProducto from '../components/reportes/VentasPorProducto';
+import VentasDiarias from '../components/reportes/VentasDiarias';
 import NivelesTanques from '../components/reportes/NivelesTanques';
 import SaldosCuentasCorrientes from '../components/reportes/SaldosCuentasCorrientes';
 import ComprasDiscriminadas from '../components/reportes/ComprasDiscriminadas';
@@ -24,7 +24,7 @@ const ReportesView: React.FC = () => {
   const renderReporte = () => {
     switch (tipoReporte) {
       case 'ventas-producto':
-        return <VentasPorProducto fechaInicio={fechaInicio} fechaFin={fechaFin} onFechaChange={(inicio, fin) => { setFechaInicio(inicio); setFechaFin(fin); }} />;
+        return <VentasDiarias fechaInicio={fechaInicio} fechaFin={fechaFin} onFechaChange={(inicio, fin) => { setFechaInicio(inicio); setFechaFin(fin); }} />;
       case 'niveles-tanques':
         return <NivelesTanques fechaInicio={fechaInicio} fechaFin={fechaFin} onFechaChange={(inicio, fin) => { setFechaInicio(inicio); setFechaFin(fin); }} />;
       case 'saldos-cuentas':
