@@ -18,6 +18,21 @@ export interface RegistroSubdiario {
   importe: number;
   nombre_estacion?: string;
   nombre_caja?: string;
+  numero_factura?: string;
+  factura_id?: string;
+}
+
+export interface FacturaVenta {
+  IdFactura?: number;
+  idFactura?: number;
+  FechaEmision?: string;
+  fechaEmision?: string;
+  MontoTotal?: number;
+  montoTotal?: number;
+  NombreCliente?: string;
+  nombreCliente?: string;
+  NumeroFactura?: string;
+  numeroFactura?: string;
 }
 
 /**
@@ -52,6 +67,8 @@ export async function fetchReporteSubdiario(
     importe: convertirImporte(Number(d.importe || d.Importe || 0)),
     nombre_estacion: d.nombre_estacion || d.NombreEstacion || "",
     nombre_caja: d.nombre_caja || d.NombreCaja || "",
+    numero_factura: d.numero_factura || d.NumeroFactura || d.factura_id || d.FacturaId || "",
+    factura_id: d.factura_id || d.FacturaId || d.numero_factura || d.NumeroFactura || "",
   }));
 
   // Filtramos filas vacías
@@ -111,6 +128,12 @@ export interface FacturaProveedorPendiente {
   estado: string;
 }
 
+export interface FacturasProveedorPorMes {
+  proveedor: string;
+  total_importe: number;
+  cantidad_facturas: number;
+}
+
 export interface UnidadEmpresa {
   unidad_id: number;
   nombre: string;
@@ -120,6 +143,16 @@ export interface UnidadEmpresa {
   tipo: string;
   estado: string;
   alertas: string[];
+}
+
+export interface UnidadesEmpresaResponse {
+  empresa_id: number;
+  nombre_empresa: string;
+  total_estaciones: number;
+  total_cajas: number;
+  total_unidades: number;
+  total_importe: number;
+  dias_con_actividad: number;
 }
 
 export interface CuentasAging {
@@ -226,8 +259,8 @@ function getMockVentasPorProducto(): VentaProducto[] {
 }
 
 /**
- * Obtiene niveles de tanques y stock valorizado
- * Usa el endpoint /api/reportes/subdiario y calcula los niveles basándose en los últimos datos
+ * Obtiene niveles de tanques
+ * Usa el endpoint /api/Tanques/GetAllTanques (API Externa - Caldenon)
  */
 export async function fetchNivelesTanques(
   empresaId?: number
@@ -235,79 +268,93 @@ export async function fetchNivelesTanques(
   // La variable de entorno ya incluye /api, no agregar otro /api
   const API_URL = process.env.REACT_APP_API_URL || "http://localhost:4000/api";
   
-  // Obtener datos recientes (últimos 30 días) para calcular niveles
-  const fechaFin = new Date().toISOString().split('T')[0];
-  const fechaInicio = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  // Obtener token de autenticación
+  const token = localStorage.getItem('token');
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
   
   const params = new URLSearchParams();
-  params.append("fechaInicio", fechaInicio);
-  params.append("fechaFin", fechaFin);
   if (empresaId) params.append("empresaId", empresaId.toString());
 
-  const response = await fetch(`${API_URL}/reportes/subdiario?${params.toString()}`);
-  
-  if (!response.ok) {
-    throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
-  }
-
-  const contentType = response.headers.get("content-type");
-  if (!contentType || !contentType.includes("application/json")) {
-    const text = await response.text();
-    throw new Error(`El backend devolvió ${contentType || 'text/html'} en lugar de JSON. Respuesta: ${text.substring(0, 200)}`);
-  }
-
-  const json = await response.json();
-
-  if (!json.ok || !Array.isArray(json.data)) {
-    throw new Error(json.error || json.message || "Error al obtener niveles de tanques");
-  }
-
-  // Agrupar por producto y estación, obtener el último nivel conocido
-  // El endpoint subdiario devuelve: fecha, nombre (producto), litros, importe, nombre_estacion, nombre_caja
-  const nivelesMap = new Map<string, { producto_id: number; nombre_producto: string; estacion_id: number; nombre_estacion: string; cantidad: number; importe: number; fecha: string }>();
-  
-  json.data.forEach((item: any) => {
-    const nombreProducto = item.nombre || item.Nombre || 'Sin nombre';
-    const nombreEstacion = item.nombre_estacion || item.NombreEstacion || 'Sin estación';
-    const estacionId = item.estacion_id || item.id_estacion || 0;
-    const key = `${nombreProducto}_${estacionId}`;
-    const cantidad = Number(item.litros || item.Litros || 0);
-    const fecha = item.fecha || item.Fecha || new Date().toISOString();
+  try {
+    const url = params.toString() 
+      ? `${API_URL}/Tanques/GetAllTanques?${params.toString()}`
+      : `${API_URL}/Tanques/GetAllTanques`;
+      
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: headers
+    });
     
-    if (!nivelesMap.has(key) || new Date(fecha) > new Date(nivelesMap.get(key)!.fecha)) {
-      nivelesMap.set(key, {
-        producto_id: 0,
-        nombre_producto: nombreProducto,
-        estacion_id: estacionId,
-        nombre_estacion: nombreEstacion,
-        cantidad,
-        importe: convertirImporte(Number(item.importe || item.Importe || 0)),
-        fecha,
-      });
+    if (!response.ok) {
+      throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
     }
-  });
 
-  // Convertir a array y calcular niveles estimados
-  let tanqueId = 1;
-  return Array.from(nivelesMap.values()).map((item) => {
-    const capacidad = 50000; // Capacidad estimada por defecto
-    const nivel_actual = item.cantidad;
-    const porcentaje = capacidad > 0 ? (nivel_actual / capacidad) * 100 : 0;
-    const precioUnitario = item.cantidad > 0 ? item.importe / item.cantidad : 0;
-    const valor_stock = nivel_actual * precioUnitario;
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      const text = await response.text();
+      throw new Error(`El backend devolvió ${contentType || 'text/html'} en lugar de JSON. Respuesta: ${text.substring(0, 200)}`);
+    }
 
-    return {
-      tanque_id: tanqueId++,
-      producto_id: item.producto_id,
-      nombre_producto: item.nombre_producto,
-      capacidad,
-      nivel_actual,
-      porcentaje,
-      valor_stock,
-      estacion_id: item.estacion_id,
-      nombre_estacion: item.nombre_estacion,
-    };
-  });
+    const json = await response.json();
+
+    // Manejar diferentes formatos de respuesta
+    let data: any[] = [];
+    if (Array.isArray(json)) {
+      data = json;
+    } else if (json.ok && Array.isArray(json.data)) {
+      data = json.data;
+    } else if (json.data && Array.isArray(json.data)) {
+      data = json.data;
+    } else {
+      throw new Error(json.error || json.message || "Formato de respuesta inesperado");
+    }
+
+    // El endpoint GetAllTanques debería devolver datos directamente de tanques
+    // Mapear campos posibles del endpoint a la estructura NivelTanque
+    return data.map((item: any, index: number) => {
+      // Mapear campos posibles del endpoint
+      const tanque_id = item.tanque_id || item.id || item.tanqueId || index + 1;
+      const producto_id = item.producto_id || item.productoId || item.id_producto || 0;
+      const nombre_producto = item.nombre_producto || item.producto || item.nombre || item.Nombre || 'Sin nombre';
+      const capacidad = Number(item.capacidad || item.Capacidad || item.capacidad_litros || 50000);
+      const nivel_actual = Number(item.nivel_actual || item.NivelActual || item.cantidad || item.Cantidad || item.litros || item.Litros || 0);
+      const estacion_id = Number(item.estacion_id || item.estacionId || item.id_estacion || item.EstacionId || 0);
+      const nombre_estacion = item.nombre_estacion || item.estacion || item.NombreEstacion || item.Estacion || 'Sin estación';
+      
+      // Calcular porcentaje
+      const porcentaje = capacidad > 0 ? (nivel_actual / capacidad) * 100 : 0;
+      
+      // Calcular valor_stock si hay precio unitario disponible
+      const precioUnitario = item.precio_unitario || item.precioUnitario || item.precio || item.Precio || 0;
+      const importe = item.importe || item.Importe || 0;
+      // Si hay importe pero no precio unitario, calcularlo
+      const precioCalculado = precioUnitario > 0 
+        ? precioUnitario 
+        : (nivel_actual > 0 && importe > 0 ? convertirImporte(Number(importe)) / nivel_actual : 0);
+      const valor_stock = nivel_actual * precioCalculado;
+
+      return {
+        tanque_id,
+        producto_id,
+        nombre_producto,
+        capacidad,
+        nivel_actual,
+        porcentaje,
+        valor_stock,
+        estacion_id,
+        nombre_estacion,
+      };
+    });
+  } catch (error) {
+    console.warn("Error al obtener niveles de tanques:", error);
+    // Retornar datos mock en caso de error para desarrollo
+    return getMockNivelesTanques();
+  }
 }
 
 function getMockNivelesTanques(): NivelTanque[] {
@@ -619,90 +666,105 @@ function getMockFacturasProveedoresPendientes(): FacturaProveedorPendiente[] {
 }
 
 /**
- * Obtiene unidades de la empresa con geolocalización y alertas
- * Usa el endpoint /api/reportes/subdiario para obtener las estaciones únicas
+ * Obtiene unidades de la empresa usando el endpoint correcto
+ * GET /api/reportes?tipo=unidades-empresa
  */
 export async function fetchUnidadesEmpresa(
-  empresaId?: number
+  fechaInicio?: string,
+  fechaFin?: string
 ): Promise<UnidadEmpresa[]> {
-  // La variable de entorno ya incluye /api, no agregar otro /api
   const API_URL = process.env.REACT_APP_API_URL || "http://localhost:4000/api";
   
-  // Obtener datos recientes para identificar estaciones activas
-  const fechaFin = new Date().toISOString().split('T')[0];
-  const fechaInicio = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  // Obtener token de autenticación
+  const token = localStorage.getItem('token');
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  // Si no se proporcionan fechas, usar el mes actual por defecto
+  if (!fechaInicio || !fechaFin) {
+    const hoy = new Date();
+    const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    fechaInicio = primerDiaMes.toISOString().split('T')[0];
+    fechaFin = hoy.toISOString().split('T')[0];
+  }
   
   const params = new URLSearchParams();
+  params.append("tipo", "unidades-empresa");
   params.append("fechaInicio", fechaInicio);
   params.append("fechaFin", fechaFin);
-  if (empresaId) params.append("empresaId", empresaId.toString());
 
-  const response = await fetch(`${API_URL}/reportes/subdiario?${params.toString()}`);
-  
-  if (!response.ok) {
-    throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
-  }
-
-  const contentType = response.headers.get("content-type");
-  if (!contentType || !contentType.includes("application/json")) {
-    const text = await response.text();
-    throw new Error(`El backend devolvió ${contentType || 'text/html'} en lugar de JSON. Respuesta: ${text.substring(0, 200)}`);
-  }
-
-  const json = await response.json();
-
-  if (!json.ok || !Array.isArray(json.data)) {
-    throw new Error(json.error || json.message || "Error al obtener unidades de la empresa");
-  }
-
-  // Agrupar por estación y calcular estado y alertas
-  // El endpoint subdiario devuelve: fecha, nombre (producto), litros, importe, nombre_estacion, nombre_caja
-  const estacionesMap = new Map<number, { nombre_estacion: string; ultima_actividad: string; alertas: string[] }>();
-  
-  json.data.forEach((item: any) => {
-    const estacionId = item.estacion_id || item.id_estacion || 0;
-    const nombreEstacion = item.nombre_estacion || item.NombreEstacion || `Estación ${estacionId}`;
-    const fecha = item.fecha || item.Fecha || new Date().toISOString();
+  try {
+    const response = await fetch(`${API_URL}/reportes?${params.toString()}`, {
+      method: 'GET',
+      headers: headers
+    });
     
-    if (!estacionesMap.has(estacionId)) {
-      estacionesMap.set(estacionId, {
-        nombre_estacion: nombreEstacion,
-        ultima_actividad: fecha,
-        alertas: [],
-      });
+    if (!response.ok) {
+      throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
+    }
+
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      const text = await response.text();
+      throw new Error(`El backend devolvió ${contentType || 'text/html'} en lugar de JSON. Respuesta: ${text.substring(0, 200)}`);
+    }
+
+    const json = await response.json();
+
+    // Manejar diferentes formatos de respuesta
+    let data: any[] = [];
+    if (Array.isArray(json)) {
+      data = json;
+    } else if (json.ok && Array.isArray(json.data)) {
+      data = json.data;
+    } else if (json.data && Array.isArray(json.data)) {
+      data = json.data;
     } else {
-      const existente = estacionesMap.get(estacionId)!;
-      if (new Date(fecha) > new Date(existente.ultima_actividad)) {
-        existente.ultima_actividad = fecha;
+      throw new Error(json.error || json.message || "Formato de respuesta inesperado");
+    }
+
+    // Transformar la respuesta del endpoint a formato UnidadEmpresa
+    // El endpoint retorna: empresa_id, nombre_empresa, total_estaciones, total_cajas, total_unidades, total_importe, dias_con_actividad
+    return data.map((item: any, index: number) => {
+      const empresaId = item.empresa_id || item.EmpresaId || index + 1;
+      const nombreEmpresa = item.nombre_empresa || item.NombreEmpresa || `Empresa ${empresaId}`;
+      const totalEstaciones = item.total_estaciones || item.TotalEstaciones || 0;
+      const totalCajas = item.total_cajas || item.TotalCajas || 0;
+      const totalUnidades = item.total_unidades || item.TotalUnidades || 0;
+      const diasActividad = item.dias_con_actividad || item.DiasConActividad || 0;
+      
+      // Calcular estado basado en días con actividad
+      const estado = diasActividad > 0 ? 'Activa' : 'Inactiva';
+      
+      // Generar alertas basadas en la información disponible
+      const alertas: string[] = [];
+      if (diasActividad === 0) {
+        alertas.push('Sin actividad en el período seleccionado');
       }
-    }
-  });
-
-  // Convertir a array y calcular estados y alertas
-  let unidadId = 1;
-  return Array.from(estacionesMap.entries()).map(([estacion_id, datos]) => {
-    const ultimaActividad = new Date(datos.ultima_actividad);
-    const ahora = new Date();
-    const diasInactivo = Math.floor((ahora.getTime() - ultimaActividad.getTime()) / (1000 * 60 * 60 * 24));
-    
-    const alertas: string[] = [];
-    if (diasInactivo > 7) {
-      alertas.push(`Sin actividad desde hace ${diasInactivo} días`);
-    }
-    
-    const estado = diasInactivo <= 7 ? 'Activa' : 'Inactiva';
-
-    return {
-      unidad_id: unidadId++,
-      nombre: datos.nombre_estacion,
-      direccion: 'Dirección no disponible',
-      latitud: -34.6037, // Buenos Aires por defecto
-      longitud: -58.3816,
-      tipo: 'Estación de Servicio',
-      estado,
-      alertas,
-    };
-  });
+      if (totalEstaciones === 0) {
+        alertas.push('No hay estaciones registradas');
+      }
+      
+      return {
+        unidad_id: empresaId,
+        nombre: nombreEmpresa,
+        direccion: 'Dirección no disponible', // El endpoint no retorna dirección
+        latitud: -34.6037, // Buenos Aires por defecto (no hay coordenadas en el endpoint)
+        longitud: -58.3816,
+        tipo: 'Empresa',
+        estado,
+        alertas,
+      };
+    });
+  } catch (error) {
+    console.warn("Error al obtener unidades de la empresa:", error);
+    // Retornar datos mock
+    return getMockUnidadesEmpresa();
+  }
 }
 
 function getMockUnidadesEmpresa(): UnidadEmpresa[] {
@@ -907,4 +969,913 @@ export async function fetchStockValorizado(): Promise<StockValorizado[]> {
       },
     ];
   }
+}
+
+// Interfaces para las 3 grillas de saldos de cuentas corrientes
+export interface SaldoCuentaCorrienteConSaldo {
+  cliente_id: number;
+  nombre_cliente: string;
+  saldo: number;
+  ultima_actualizacion: string;
+}
+
+export interface ClienteConDeudaPendiente {
+  cliente_id: number;
+  nombre_cliente: string;
+  deuda_total: number;
+  facturas_pendientes: FacturaPendiente[];
+}
+
+export interface FacturaPendiente {
+  factura_id: string;
+  numero_factura: string;
+  fecha_emision: string;
+  fecha_vencimiento: string;
+  importe: number;
+  dias_vencido: number;
+  estado: string;
+}
+
+export interface RemitoPendienteFacturar {
+  remito_id: number;
+  numero_remito: string;
+  fecha: string;
+  cliente: string;
+  importe: number;
+  dias_pendiente: number;
+  estado: string;
+}
+
+/**
+ * Obtiene saldos de cuentas corrientes que no sean = cero
+ * Usa el endpoint /api/CtaCte/GetRecibosEntreFechas
+ */
+export async function fetchSaldosCuentasCorrientesConSaldo(
+  desdeFecha?: string,
+  hastaFecha?: string
+): Promise<SaldoCuentaCorrienteConSaldo[]> {
+  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:4000/api";
+  
+  // Obtener token de autenticación
+  const token = localStorage.getItem('token');
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  // Si no se proporcionan fechas, usar últimos 90 días
+  if (!desdeFecha || !hastaFecha) {
+    const hoy = new Date();
+    hastaFecha = hoy.toISOString().split('T')[0];
+    const fechaInicio = new Date(hoy.getTime() - 90 * 24 * 60 * 60 * 1000);
+    desdeFecha = fechaInicio.toISOString().split('T')[0];
+  }
+  
+  const params = new URLSearchParams();
+  params.append("desdeFecha", desdeFecha);
+  params.append("hastaFecha", hastaFecha);
+  
+  try {
+    const response = await fetch(`${API_URL}/CtaCte/GetRecibosEntreFechas?${params.toString()}`, {
+      method: 'GET',
+      headers: headers
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
+    }
+    
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      const text = await response.text();
+      throw new Error(`El backend devolvió ${contentType || 'text/html'} en lugar de JSON. Respuesta: ${text.substring(0, 200)}`);
+    }
+    
+    const json = await response.json();
+    
+    // Manejar diferentes formatos de respuesta
+    let data: any[] = [];
+    if (Array.isArray(json)) {
+      data = json;
+    } else if (json.ok && Array.isArray(json.data)) {
+      data = json.data;
+    } else if (json.data && Array.isArray(json.data)) {
+      data = json.data;
+    } else {
+      throw new Error(json.error || json.message || "Formato de respuesta inesperado");
+    }
+    
+    // Agrupar por cliente y calcular saldos
+    const clientesMap = new Map<string, { nombre_cliente: string; saldo: number; ultima_actualizacion: string }>();
+    
+    data.forEach((item: any) => {
+      const nombreCliente = item.cliente || item.nombre_cliente || item.Cliente || item.NombreCliente || 'Sin cliente';
+      const importe = convertirImporte(Number(item.importe || item.Importe || item.saldo || item.Saldo || 0));
+      const fecha = item.fecha || item.Fecha || item.fecha_emision || item.FechaEmision || new Date().toISOString();
+      
+      if (!clientesMap.has(nombreCliente)) {
+        clientesMap.set(nombreCliente, {
+          nombre_cliente: nombreCliente,
+          saldo: 0,
+          ultima_actualizacion: fecha,
+        });
+      }
+      
+      const cliente = clientesMap.get(nombreCliente)!;
+      cliente.saldo += importe;
+      
+      if (new Date(fecha) > new Date(cliente.ultima_actualizacion)) {
+        cliente.ultima_actualizacion = fecha;
+      }
+    });
+    
+    // Filtrar solo los que tienen saldo != 0 y convertir a array
+    let clienteId = 1;
+    return Array.from(clientesMap.values())
+      .filter(cliente => cliente.saldo !== 0)
+      .map(cliente => ({
+        cliente_id: clienteId++,
+        nombre_cliente: cliente.nombre_cliente,
+        saldo: cliente.saldo,
+        ultima_actualizacion: cliente.ultima_actualizacion,
+      }));
+  } catch (error) {
+    console.warn("Error al obtener saldos de cuentas corrientes:", error);
+    // Retornar datos mock
+    return getMockSaldosConSaldo();
+  }
+}
+
+function getMockSaldosConSaldo(): SaldoCuentaCorrienteConSaldo[] {
+  return [
+    { cliente_id: 1, nombre_cliente: "Transportes ABC S.A.", saldo: 150000, ultima_actualizacion: new Date().toISOString() },
+    { cliente_id: 2, nombre_cliente: "Logística XYZ", saldo: -85000, ultima_actualizacion: new Date().toISOString() },
+    { cliente_id: 3, nombre_cliente: "Distribuidora Sur", saldo: 250000, ultima_actualizacion: new Date().toISOString() },
+  ];
+}
+
+/**
+ * Obtiene clientes con deuda pendiente de cobro
+ * Machea facturas con recibos para determinar qué facturas quedan pendientes
+ */
+export async function fetchClientesConDeudaPendiente(
+  desdeFecha?: string,
+  hastaFecha?: string
+): Promise<ClienteConDeudaPendiente[]> {
+  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:4000/api";
+  
+  // Obtener token de autenticación
+  const token = localStorage.getItem('token');
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  // Si no se proporcionan fechas, usar últimos 90 días
+  if (!desdeFecha || !hastaFecha) {
+    const hoy = new Date();
+    hastaFecha = hoy.toISOString().split('T')[0];
+    const fechaInicio = new Date(hoy.getTime() - 90 * 24 * 60 * 60 * 1000);
+    desdeFecha = fechaInicio.toISOString().split('T')[0];
+  }
+  
+  try {
+    // Convertir fechas al formato YYYYMMDD requerido por los endpoints
+    // GetFacturasVenta requiere YYYYMMDD según la documentación
+    const desdeFechaFormato = convertirFechaFormato(desdeFecha);
+    const hastaFechaFormato = convertirFechaFormato(hastaFecha);
+    
+    // Obtener facturas y recibos
+    const paramsFacturas = new URLSearchParams();
+    paramsFacturas.append("desdeFecha", desdeFechaFormato);
+    paramsFacturas.append("hastaFecha", hastaFechaFormato);
+    
+    const [responseFacturas, responseRecibos] = await Promise.all([
+      fetch(`${API_URL}/Facturacion/GetFacturasVenta?${paramsFacturas.toString()}`, {
+        method: 'GET',
+        headers: headers
+      }),
+      fetch(`${API_URL}/CtaCte/GetRecibosEntreFechas?${paramsFacturas.toString()}`, {
+        method: 'GET',
+        headers: headers
+      })
+    ]);
+    
+    if (!responseFacturas.ok || !responseRecibos.ok) {
+      throw new Error(`Error HTTP al obtener facturas o recibos`);
+    }
+    
+    const jsonFacturas = await responseFacturas.json();
+    const jsonRecibos = await responseRecibos.json();
+    
+    // Procesar facturas
+    let facturasData: any[] = [];
+    if (Array.isArray(jsonFacturas)) {
+      facturasData = jsonFacturas;
+    } else if (jsonFacturas.ok && Array.isArray(jsonFacturas.data)) {
+      facturasData = jsonFacturas.data;
+    } else if (jsonFacturas.data && Array.isArray(jsonFacturas.data)) {
+      facturasData = jsonFacturas.data;
+    }
+    
+    // Procesar recibos
+    let recibosData: any[] = [];
+    if (Array.isArray(jsonRecibos)) {
+      recibosData = jsonRecibos;
+    } else if (jsonRecibos.ok && Array.isArray(jsonRecibos.data)) {
+      recibosData = jsonRecibos.data;
+    } else if (jsonRecibos.data && Array.isArray(jsonRecibos.data)) {
+      recibosData = jsonRecibos.data;
+    }
+    
+    // Mapear recibos por factura (asumiendo que hay un campo que relaciona recibos con facturas)
+    const recibosPorFactura = new Map<string, number>();
+    recibosData.forEach((recibo: any) => {
+      const facturaId = recibo.factura_id || recibo.FacturaId || recibo.numero_factura || recibo.NumeroFactura || '';
+      const importe = convertirImporte(Number(recibo.importe || recibo.Importe || 0));
+      if (recibosPorFactura.has(facturaId)) {
+        recibosPorFactura.set(facturaId, recibosPorFactura.get(facturaId)! + importe);
+      } else {
+        recibosPorFactura.set(facturaId, importe);
+      }
+    });
+    
+    // Agrupar facturas pendientes por cliente
+    const clientesMap = new Map<string, { facturas: FacturaPendiente[] }>();
+    const hoy = new Date();
+    
+    facturasData.forEach((factura: any) => {
+      const cliente = factura.cliente || factura.nombre_cliente || factura.Cliente || factura.NombreCliente || 'Sin cliente';
+      const facturaId = factura.factura_id || factura.FacturaId || factura.numero_factura || factura.NumeroFactura || '';
+      const numeroFactura = factura.numero_factura || factura.NumeroFactura || facturaId;
+      const fechaEmision = factura.fecha_emision || factura.FechaEmision || factura.fecha || factura.Fecha || new Date().toISOString();
+      const fechaVencimiento = factura.fecha_vencimiento || factura.FechaVencimiento || 
+        new Date(new Date(fechaEmision).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      const importeTotal = convertirImporte(Number(factura.importe || factura.Importe || factura.total || factura.Total || 0));
+      const importePagado = recibosPorFactura.get(facturaId) || 0;
+      const importePendiente = importeTotal - importePagado;
+      
+      // Solo incluir facturas con saldo pendiente
+      if (importePendiente > 0) {
+        if (!clientesMap.has(cliente)) {
+          clientesMap.set(cliente, { facturas: [] });
+        }
+        
+        const fechaVenc = new Date(fechaVencimiento);
+        const diasVencido = Math.floor((hoy.getTime() - fechaVenc.getTime()) / (1000 * 60 * 60 * 24));
+        const estado = diasVencido > 0 ? 'Vencida' : (diasVencido > -10 ? 'Por Vencer' : 'Al día');
+        
+        clientesMap.get(cliente)!.facturas.push({
+          factura_id: facturaId,
+          numero_factura: numeroFactura,
+          fecha_emision: fechaEmision,
+          fecha_vencimiento: fechaVencimiento,
+          importe: importePendiente,
+          dias_vencido: Math.max(0, diasVencido),
+          estado,
+        });
+      }
+    });
+    
+    // Convertir a array
+    let clienteId = 1;
+    return Array.from(clientesMap.entries())
+      .filter(([_, datos]) => datos.facturas.length > 0)
+      .map(([nombreCliente, datos]) => ({
+        cliente_id: clienteId++,
+        nombre_cliente: nombreCliente,
+        deuda_total: datos.facturas.reduce((sum, f) => sum + f.importe, 0),
+        facturas_pendientes: datos.facturas,
+      }));
+  } catch (error) {
+    console.warn("Error al obtener clientes con deuda pendiente:", error);
+    // Retornar datos mock
+    return getMockClientesConDeuda();
+  }
+}
+
+function getMockClientesConDeuda(): ClienteConDeudaPendiente[] {
+  const hoy = new Date();
+  const vencida1 = new Date(hoy.getTime() - 15 * 86400000);
+  const vencida2 = new Date(hoy.getTime() - 5 * 86400000);
+  
+  return [
+    {
+      cliente_id: 1,
+      nombre_cliente: "Transportes ABC S.A.",
+      deuda_total: 450000,
+      facturas_pendientes: [
+        {
+          factura_id: "FC-001",
+          numero_factura: "FC-001-2024",
+          fecha_emision: vencida1.toISOString(),
+          fecha_vencimiento: new Date(vencida1.getTime() + 30 * 86400000).toISOString(),
+          importe: 250000,
+          dias_vencido: 15,
+          estado: "Vencida",
+        },
+        {
+          factura_id: "FC-002",
+          numero_factura: "FC-002-2024",
+          fecha_emision: vencida2.toISOString(),
+          fecha_vencimiento: new Date(vencida2.getTime() + 30 * 86400000).toISOString(),
+          importe: 200000,
+          dias_vencido: 5,
+          estado: "Vencida",
+        },
+      ],
+    },
+    {
+      cliente_id: 2,
+      nombre_cliente: "Logística XYZ",
+      deuda_total: 180000,
+      facturas_pendientes: [
+        {
+          factura_id: "FC-003",
+          numero_factura: "FC-003-2024",
+          fecha_emision: hoy.toISOString(),
+          fecha_vencimiento: new Date(hoy.getTime() + 30 * 86400000).toISOString(),
+          importe: 180000,
+          dias_vencido: 0,
+          estado: "Al día",
+        },
+      ],
+    },
+  ];
+}
+
+/**
+ * Obtiene remitos pendientes de facturar
+ * Nota: No hay endpoint específico para remitos, se usa aproximación
+ */
+export async function fetchRemitosPendientesFacturar(
+  desdeFecha?: string,
+  hastaFecha?: string
+): Promise<RemitoPendienteFacturar[]> {
+  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:4000/api";
+  
+  // Obtener token de autenticación
+  const token = localStorage.getItem('token');
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  // Si no se proporcionan fechas, usar últimos 90 días
+  if (!desdeFecha || !hastaFecha) {
+    const hoy = new Date();
+    hastaFecha = hoy.toISOString().split('T')[0];
+    const fechaInicio = new Date(hoy.getTime() - 90 * 24 * 60 * 60 * 1000);
+    desdeFecha = fechaInicio.toISOString().split('T')[0];
+  }
+  
+  try {
+    // Intentar obtener remitos desde facturas no facturadas o usar endpoint alternativo
+    // Por ahora, usar datos mock ya que no hay endpoint específico
+    console.warn("No hay endpoint específico para remitos pendientes, usando datos mock");
+    return getMockRemitosPendientes();
+  } catch (error) {
+    console.warn("Error al obtener remitos pendientes:", error);
+    return getMockRemitosPendientes();
+  }
+}
+
+function getMockRemitosPendientes(): RemitoPendienteFacturar[] {
+  const hoy = new Date();
+  const remito1 = new Date(hoy.getTime() - 20 * 86400000);
+  const remito2 = new Date(hoy.getTime() - 10 * 86400000);
+  const remito3 = new Date(hoy.getTime() - 5 * 86400000);
+  
+  return [
+    {
+      remito_id: 1,
+      numero_remito: "REM-001-2024",
+      fecha: remito1.toISOString(),
+      cliente: "Transportes ABC S.A.",
+      importe: 320000,
+      dias_pendiente: 20,
+      estado: "Pendiente",
+    },
+    {
+      remito_id: 2,
+      numero_remito: "REM-002-2024",
+      fecha: remito2.toISOString(),
+      cliente: "Logística XYZ",
+      importe: 150000,
+      dias_pendiente: 10,
+      estado: "Pendiente",
+    },
+    {
+      remito_id: 3,
+      numero_remito: "REM-003-2024",
+      fecha: remito3.toISOString(),
+      cliente: "Distribuidora Sur",
+      importe: 280000,
+      dias_pendiente: 5,
+      estado: "Pendiente",
+    },
+  ];
+}
+
+/**
+ * Convierte una fecha en formato YYYY-MM-DD a YYYYMMDD
+ */
+function convertirFechaFormato(fecha: string): string {
+  // Si ya está en formato YYYYMMDD, retornar tal cual
+  if (/^\d{8}$/.test(fecha)) {
+    return fecha;
+  }
+  // Si está en formato YYYY-MM-DD, convertir a YYYYMMDD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+    return fecha.replace(/-/g, '');
+  }
+  // Si está en formato DD-MM-YYYY, convertir a YYYYMMDD
+  if (/^\d{2}-\d{2}-\d{4}$/.test(fecha)) {
+    const [dia, mes, anio] = fecha.split('-');
+    return `${anio}${mes}${dia}`;
+  }
+  // Intentar parsear como Date y convertir
+  const date = new Date(fecha);
+  if (!isNaN(date.getTime())) {
+    const anio = date.getFullYear();
+    const mes = String(date.getMonth() + 1).padStart(2, '0');
+    const dia = String(date.getDate()).padStart(2, '0');
+    return `${anio}${mes}${dia}`;
+  }
+  throw new Error(`Formato de fecha no reconocido: ${fecha}`);
+}
+
+/**
+ * Obtiene facturas de venta desde GetFacturasVenta
+ * Filtra las que tienen NombreCliente === "Axion Card"
+ */
+export async function fetchFacturasVentaAC(
+  fechaInicio?: string,
+  fechaFin?: string
+): Promise<FacturaVenta[]> {
+  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:4000/api";
+  
+  // Obtener token de autenticación
+  const token = localStorage.getItem('token');
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  // Si no se proporcionan fechas, usar el mes actual
+  if (!fechaInicio || !fechaFin) {
+    const hoy = new Date();
+    const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    fechaInicio = primerDiaMes.toISOString().split('T')[0];
+    fechaFin = hoy.toISOString().split('T')[0];
+  }
+  
+  try {
+    // Convertir fechas al formato YYYYMMDD requerido por el endpoint GetFacturasVenta
+    // Según la documentación: "en formato YYYYMMDD"
+    const desdeFechaFormato = convertirFechaFormato(fechaInicio);
+    const hastaFechaFormato = convertirFechaFormato(fechaFin);
+    
+    const params = new URLSearchParams();
+    params.append("desdeFecha", desdeFechaFormato);
+    params.append("hastaFecha", hastaFechaFormato);
+    
+    const response = await fetch(`${API_URL}/Facturacion/GetFacturasVenta?${params.toString()}`, {
+      method: 'GET',
+      headers: headers
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
+    }
+    
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      const text = await response.text();
+      throw new Error(`El backend devolvió ${contentType || 'text/html'} en lugar de JSON. Respuesta: ${text.substring(0, 200)}`);
+    }
+    
+    const json = await response.json();
+    
+    // Manejar diferentes formatos de respuesta
+    let data: any[] = [];
+    if (Array.isArray(json)) {
+      data = json;
+    } else if (json.ok && Array.isArray(json.data)) {
+      data = json.data;
+    } else if (json.data && Array.isArray(json.data)) {
+      data = json.data;
+    } else {
+      throw new Error(json.error || json.message || "Formato de respuesta inesperado");
+    }
+    
+    // Filtrar facturas con NombreCliente === "Axion Card"
+    const facturasAC = data
+      .filter((factura: any) => {
+        const nombreCliente = factura.NombreCliente || factura.nombreCliente || factura.Cliente || factura.cliente || '';
+        return nombreCliente.toUpperCase().trim() === 'AXION CARD';
+      })
+      .map((factura: any) => ({
+        IdFactura: factura.IdFactura || factura.idFactura,
+        idFactura: factura.idFactura || factura.IdFactura,
+        FechaEmision: factura.FechaEmision || factura.fechaEmision || factura.Fecha || factura.fecha,
+        fechaEmision: factura.fechaEmision || factura.FechaEmision || factura.Fecha || factura.fecha,
+        MontoTotal: factura.MontoTotal || factura.montoTotal || factura.Total || factura.total || 0,
+        montoTotal: factura.montoTotal || factura.MontoTotal || factura.Total || factura.total || 0,
+        NombreCliente: factura.NombreCliente || factura.nombreCliente || factura.Cliente || factura.cliente,
+        nombreCliente: factura.nombreCliente || factura.NombreCliente || factura.Cliente || factura.cliente,
+        NumeroFactura: factura.NumeroFactura || factura.numeroFactura || factura.IdFactura || factura.idFactura,
+        numeroFactura: factura.numeroFactura || factura.NumeroFactura || factura.IdFactura || factura.idFactura,
+      }));
+    
+    return facturasAC;
+  } catch (error) {
+    console.warn("Error al obtener facturas AC:", error);
+    return [];
+  }
+}
+
+/**
+ * Obtiene la suma de facturas en el mes por proveedor
+ * Usa el endpoint /api/Facturacion/GetFacturasCompra
+ * Ordenadas de mayor a menor valor
+ */
+export async function fetchFacturasProveedoresPorMes(
+  fechaInicio?: string,
+  fechaFin?: string
+): Promise<FacturasProveedorPorMes[]> {
+  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:4000/api";
+  
+  // Obtener token de autenticación
+  const token = localStorage.getItem('token');
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  // Si no se proporcionan fechas, usar el mes actual
+  if (!fechaInicio || !fechaFin) {
+    const hoy = new Date();
+    const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    fechaInicio = primerDiaMes.toISOString().split('T')[0];
+    fechaFin = hoy.toISOString().split('T')[0];
+  }
+  
+  try {
+    // Convertir fechas al formato YYYYMMDD requerido por el endpoint
+    const desdeFechaFormato = convertirFechaFormato(fechaInicio);
+    const hastaFechaFormato = convertirFechaFormato(fechaFin);
+    
+    const params = new URLSearchParams();
+    params.append("desdeFecha", desdeFechaFormato);
+    params.append("hastaFecha", hastaFechaFormato);
+    
+    const response = await fetch(`${API_URL}/Facturacion/GetFacturasCompra?${params.toString()}`, {
+      method: 'GET',
+      headers: headers
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
+    }
+    
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      const text = await response.text();
+      throw new Error(`El backend devolvió ${contentType || 'text/html'} en lugar de JSON. Respuesta: ${text.substring(0, 200)}`);
+    }
+    
+    const json = await response.json();
+    
+    // Manejar diferentes formatos de respuesta
+    let data: any[] = [];
+    if (Array.isArray(json)) {
+      data = json;
+    } else if (json.ok && Array.isArray(json.data)) {
+      data = json.data;
+    } else if (json.data && Array.isArray(json.data)) {
+      data = json.data;
+    } else {
+      throw new Error(json.error || json.message || "Formato de respuesta inesperado");
+    }
+    
+    // Agrupar por proveedor y sumar importes
+    // El endpoint retorna: IdFactura, FechaEmision, MontoTotal, NombreCliente (que es el proveedor en facturas de compra)
+    const proveedoresMap = new Map<string, { total_importe: number; cantidad_facturas: number }>();
+    
+    data.forEach((factura: any) => {
+      // El proveedor puede estar en diferentes campos según la respuesta
+      const proveedor = factura.NombreProveedor || factura.nombreProveedor || 
+                       factura.NombreCliente || factura.nombreCliente || 
+                       factura.Proveedor || factura.proveedor || 
+                       'Proveedor no especificado';
+      
+      const importe = convertirImporte(Number(factura.MontoTotal || factura.montoTotal || factura.Importe || factura.importe || 0));
+      
+      if (!proveedoresMap.has(proveedor)) {
+        proveedoresMap.set(proveedor, {
+          total_importe: 0,
+          cantidad_facturas: 0,
+        });
+      }
+      
+      const proveedorData = proveedoresMap.get(proveedor)!;
+      proveedorData.total_importe += importe;
+      proveedorData.cantidad_facturas += 1;
+    });
+    
+    // Convertir a array y ordenar de mayor a menor valor
+    return Array.from(proveedoresMap.entries())
+      .map(([proveedor, datos]) => ({
+        proveedor,
+        total_importe: datos.total_importe,
+        cantidad_facturas: datos.cantidad_facturas,
+      }))
+      .sort((a, b) => b.total_importe - a.total_importe);
+  } catch (error) {
+    console.warn("Error al obtener facturas de proveedores por mes:", error);
+    // Retornar datos mock
+    return getMockFacturasProveedoresPorMes();
+  }
+}
+
+function getMockFacturasProveedoresPorMes(): FacturasProveedorPorMes[] {
+  return [
+    { proveedor: "YPF S.A.", total_importe: 4850000, cantidad_facturas: 2 },
+    { proveedor: "Shell Argentina", total_importe: 6240000, cantidad_facturas: 1 },
+    { proveedor: "Axion Energy", total_importe: 2550000, cantidad_facturas: 1 },
+    { proveedor: "Repsol YPF", total_importe: 1800000, cantidad_facturas: 3 },
+    { proveedor: "Petrobras", total_importe: 950000, cantidad_facturas: 2 },
+  ];
+}
+
+// Interfaces para posiciones de unidades móviles
+export interface PosicionUnidad {
+  lat: string;
+  lng: string;
+  date: string;
+  speed: string;
+  direction: string;
+  event_code: string;
+  event: string;
+  plate: string;
+  imei?: string;
+  odometer?: number;
+  hourmeter?: number;
+  driver_key?: string;
+  driver_name?: string;
+  driver_document?: string;
+}
+
+/**
+ * Sincroniza posiciones desde MaxTracker a la base de datos
+ * POST /api/positions/sincronizar
+ */
+export async function sincronizarPosiciones(plate?: string): Promise<void> {
+  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:4000/api";
+  
+  // Obtener token de autenticación
+  const token = localStorage.getItem('token');
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  const body: any = {};
+  if (plate) {
+    body.plate = plate;
+  }
+  
+  try {
+    const response = await fetch(`${API_URL}/positions/sincronizar`, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(body)
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
+    }
+    
+    const json = await response.json();
+    if (!json.ok && json.error) {
+      throw new Error(json.error || json.message || "Error al sincronizar posiciones");
+    }
+  } catch (error) {
+    console.warn("Error al sincronizar posiciones:", error);
+    // No lanzar error, solo loguear para que continúe con la obtención de datos
+  }
+}
+
+/**
+ * Obtiene las posiciones de las unidades móviles desde MaxTracker
+ * Primero sincroniza las posiciones y luego las obtiene
+ * Usa el endpoint /api/positions
+ */
+export async function fetchPosicionesUnidades(
+  limit: number = 100,
+  sincronizar: boolean = true
+): Promise<PosicionUnidad[]> {
+  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:4000/api";
+  
+  // Obtener token de autenticación
+  const token = localStorage.getItem('token');
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  try {
+    // Primero sincronizar las posiciones si se solicita
+    if (sincronizar) {
+      await sincronizarPosiciones();
+    }
+    
+    // Luego obtener las posiciones
+    const params = new URLSearchParams();
+    params.append("limit", limit.toString());
+    
+    const response = await fetch(`${API_URL}/positions?${params.toString()}`, {
+      method: 'GET',
+      headers: headers
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
+    }
+    
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      const text = await response.text();
+      throw new Error(`El backend devolvió ${contentType || 'text/html'} en lugar de JSON. Respuesta: ${text.substring(0, 200)}`);
+    }
+    
+    const json = await response.json();
+    
+    // Manejar diferentes formatos de respuesta
+    let data: any[] = [];
+    if (Array.isArray(json)) {
+      data = json;
+    } else if (json.ok && Array.isArray(json.data)) {
+      data = json.data;
+    } else if (json.data && Array.isArray(json.data)) {
+      data = json.data;
+    } else {
+      throw new Error(json.error || json.message || "Formato de respuesta inesperado");
+    }
+    
+    // Transformar a formato PosicionUnidad
+    return data.map((item: any) => ({
+      lat: item.lat || item.Lat || item.latitude || item.Latitude || "0",
+      lng: item.lng || item.Lng || item.longitude || item.Longitude || "0",
+      date: item.date || item.Date || item.fecha || item.Fecha || new Date().toISOString(),
+      speed: item.speed || item.Speed || item.velocidad || item.Velocidad || "0",
+      direction: item.direction || item.Direction || item.direccion || item.Direccion || "0",
+      event_code: item.event_code || item.EventCode || item.codigo_evento || item.CodigoEvento || "",
+      event: item.event || item.Event || item.evento || item.Evento || "",
+      plate: item.plate || item.Plate || item.placa || item.Placa || "",
+      imei: item.imei || item.IMEI,
+      odometer: item.odometer || item.Odometer || item.odometro || item.Odometro,
+      hourmeter: item.hourmeter || item.Hourmeter || item.horometro || item.Horometro,
+      driver_key: item.driver_key || item.DriverKey || item.clave_conductor || item.ClaveConductor,
+      driver_name: item.driver_name || item.DriverName || item.nombre_conductor || item.NombreConductor,
+      driver_document: item.driver_document || item.DriverDocument || item.documento_conductor || item.DocumentoConductor,
+    }));
+  } catch (error) {
+    console.warn("Error al obtener posiciones de unidades:", error);
+    // Retornar datos mock
+    return getMockPosicionesUnidades();
+  }
+}
+
+/**
+ * Obtiene la última posición de un vehículo específico
+ * GET /api/positions/ultima-posicion/:placa
+ */
+export async function fetchUltimaPosicion(placa: string): Promise<PosicionUnidad | null> {
+  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:4000/api";
+  
+  // Obtener token de autenticación
+  const token = localStorage.getItem('token');
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  try {
+    const response = await fetch(`${API_URL}/positions/ultima-posicion/${encodeURIComponent(placa)}`, {
+      method: 'GET',
+      headers: headers
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
+    }
+    
+    const json = await response.json();
+    
+    // Manejar diferentes formatos de respuesta
+    let data: any = null;
+    if (json.ok && json.data) {
+      data = json.data;
+    } else if (!json.ok && json.error) {
+      throw new Error(json.error || json.message);
+    } else {
+      data = json;
+    }
+    
+    if (!data) {
+      return null;
+    }
+    
+    // Transformar a formato PosicionUnidad
+    return {
+      lat: data.lat || data.Lat || data.latitude || data.Latitude || "0",
+      lng: data.lng || data.Lng || data.longitude || data.Longitude || "0",
+      date: data.date || data.Date || data.fecha || data.Fecha || new Date().toISOString(),
+      speed: data.speed || data.Speed || data.velocidad || data.Velocidad || "0",
+      direction: data.direction || data.Direction || data.direccion || data.Direccion || "0",
+      event_code: data.event_code || data.EventCode || data.codigo_evento || data.CodigoEvento || "",
+      event: data.event || data.Event || data.evento || data.Evento || "",
+      plate: data.plate || data.Plate || data.placa || data.Placa || placa,
+      imei: data.imei || data.IMEI,
+      odometer: data.odometer || data.Odometer || data.odometro || data.Odometro,
+      hourmeter: data.hourmeter || data.Hourmeter || data.horometro || data.Horometro,
+      driver_key: data.driver_key || data.DriverKey || data.clave_conductor || data.ClaveConductor,
+      driver_name: data.driver_name || data.DriverName || data.nombre_conductor || data.NombreConductor,
+      driver_document: data.driver_document || data.DriverDocument || data.documento_conductor || data.DocumentoConductor,
+    };
+  } catch (error) {
+    console.warn(`Error al obtener última posición de ${placa}:`, error);
+    return null;
+  }
+}
+
+function getMockPosicionesUnidades(): PosicionUnidad[] {
+  return [
+    {
+      lat: "-34.603722",
+      lng: "-58.381592",
+      date: new Date().toISOString(),
+      speed: "60.5",
+      direction: "180",
+      event_code: "MOV",
+      event: "Movimiento",
+      plate: "AD776WH",
+      imei: "123456789",
+      odometer: 50000,
+      hourmeter: 2000,
+      driver_key: "KEY123",
+      driver_name: "Juan Pérez",
+      driver_document: "12345678"
+    },
+    {
+      lat: "-34.570000",
+      lng: "-58.410000",
+      date: new Date(Date.now() - 3600000).toISOString(),
+      speed: "45.2",
+      direction: "90",
+      event_code: "MOV",
+      event: "Movimiento",
+      plate: "BC123XY",
+      imei: "987654321",
+      odometer: 35000,
+      hourmeter: 1500,
+      driver_key: "KEY456",
+      driver_name: "María González",
+      driver_document: "87654321"
+    },
+    {
+      lat: "-34.650000",
+      lng: "-58.500000",
+      date: new Date(Date.now() - 7200000).toISOString(),
+      speed: "0",
+      direction: "0",
+      event_code: "STP",
+      event: "Detenido",
+      plate: "CD456AB",
+      imei: "456789123",
+      odometer: 28000,
+      hourmeter: 1200,
+      driver_key: "KEY789",
+      driver_name: "Carlos Rodríguez",
+      driver_document: "11223344"
+    },
+  ];
 }

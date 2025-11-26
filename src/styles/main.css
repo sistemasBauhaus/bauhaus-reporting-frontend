@@ -3,6 +3,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* MapLibre GL CSS */
+@import '~maplibre-gl/dist/maplibre-gl.css';
+
 /* Logo circular grande y centrado */
 @layer components {
   .bauhaus-logo-circle {
