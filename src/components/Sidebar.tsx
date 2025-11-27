@@ -2,18 +2,31 @@ import React, { useState } from 'react';
 import { FiMenu, FiChevronLeft, FiHome, FiBarChart2, FiSettings, FiLogOut, FiUser, FiTrendingUp, FiDroplet, FiDollarSign, FiShoppingCart, FiFileText, FiMapPin } from "react-icons/fi";
 import { Link, useNavigate } from 'react-router-dom';
 
+const PERMISO_LABELS: Record<string, string> = {
+  "menu.inicio": "Inicio",
+  "menu.reporte_diario": "Reporte Diario",
+  "menu.ventas_diarias": "Ventas Diarias",
+  "menu.niveles_tanques": "Niveles de Tanques",
+  "menu.saldos_cuentas_corrientes": "Saldos Cuentas Corrientes",
+  "menu.compras_discriminadas": "Compras Discriminadas",
+  "menu.facturas_proveedores": "Facturas Proveedores",
+  "menu.unidades_empresa": "Unidades de Empresa",
+  "menu.gestion_usuarios": "Gestión de Usuarios",
+};
+
 const menuItems = [
-  { label: 'Inicio', icon: FiHome, href: '/dashboard' },
-  { label: 'Reporte Diario', icon: FiBarChart2, href: '/reporte-diario' },
+  { label: 'Inicio', icon: FiHome, href: '/dashboard', permiso: 'menu.inicio' },
+
 ];
 
 const reportesItems = [
-  { label: 'Ventas Diarias', icon: FiTrendingUp, href: '/reportes?tipo=ventas-producto' },
-  { label: 'Niveles de Tanques', icon: FiDroplet, href: '/reportes?tipo=niveles-tanques' },
-  { label: 'Saldos Cuentas Corrientes', icon: FiDollarSign, href: '/reportes?tipo=saldos-cuentas' },
-  { label: 'Compras Discriminadas', icon: FiShoppingCart, href: '/reportes?tipo=compras-discriminadas' },
-  { label: 'Facturas Proveedores', icon: FiFileText, href: '/reportes?tipo=facturas-proveedores' },
-  { label: 'Unidades de la Empresa', icon: FiMapPin, href: '/reportes?tipo=unidades-empresa' },
+    { label: 'Reporte Diario', icon: FiBarChart2, href: '/reporte-diario', permiso: 'menu.reporte_diario' },
+  { label: 'Ventas Diarias', icon: FiTrendingUp, href: '/reportes?tipo=ventas-producto', permiso: 'menu.ventas_diarias' },
+  { label: 'Niveles de Tanques', icon: FiDroplet, href: '/reportes?tipo=niveles-tanques', permiso: 'menu.niveles_tanques' },
+  { label: 'Saldos Cuentas Corrientes', icon: FiDollarSign, href: '/reportes?tipo=saldos-cuentas', permiso: 'menu.saldos_cuentas_corrientes' },
+  { label: 'Compras Discriminadas', icon: FiShoppingCart, href: '/reportes?tipo=compras-discriminadas', permiso: 'menu.compras_discriminadas' },
+  { label: 'Facturas Proveedores', icon: FiFileText, href: '/reportes?tipo=facturas-proveedores', permiso: 'menu.facturas_proveedores' },
+  { label: 'Unidades de la Empresa', icon: FiMapPin, href: '/reportes?tipo=unidades-empresa', permiso: 'menu.unidades_empresa' },
 ];
 
 const Sidebar: React.FC = () => {
@@ -64,7 +77,7 @@ const Sidebar: React.FC = () => {
           {/* Menú */}
           <nav className="flex-1 py-6 space-y-2 flex flex-col items-center overflow-y-auto">
             {menuItems.map(item => (
-              hasPermiso(`menu.${item.label.replace(/ /g, '_').toLowerCase()}`) && (
+              hasPermiso(item.permiso) && (
                 <Link
                   key={item.label}
                   to={item.href}
@@ -74,7 +87,7 @@ const Sidebar: React.FC = () => {
                 >
                   {item.icon({ className: "text-lg" })}
                   {!collapsed && (
-                    <span className="text-base ml-2">{item.label}</span>
+                    <span className="text-base ml-2">{PERMISO_LABELS[item.permiso] || item.label}</span>
                   )}
                 </Link>
               )
@@ -87,7 +100,7 @@ const Sidebar: React.FC = () => {
               </div>
             )}
             {reportesItems.map(item => (
-              hasPermiso(`menu.${item.label.replace(/ /g, '_').toLowerCase()}`) && (
+              hasPermiso(item.permiso) && (
                 <Link
                   key={item.label}
                   to={item.href}
@@ -97,7 +110,7 @@ const Sidebar: React.FC = () => {
                 >
                   {item.icon({ className: "text-lg" })}
                   {!collapsed && (
-                    <span className="text-sm ml-2">{item.label}</span>
+                    <span className="text-base ml-2">{PERMISO_LABELS[item.permiso] || item.label}</span>
                   )}
                 </Link>
               )

@@ -62,7 +62,7 @@ const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-bauhaus-light to-bauhaus px-2 sm:px-4 dark:from-gray-900 dark:to-gray-800 transition-colors duration-500">
-      <div className="w-full max-w-7xl bg-white dark:bg-gray-900 rounded-2xl shadow-xl flex flex-col md:flex-row overflow-hidden">
+      <div className="w-full max-w-6xl bg-white dark:bg-gray-900 rounded-2xl shadow-xl flex flex-col md:flex-row overflow-hidden">
         {/* Imagen lado izquierdo */}
           <div className="w-full md:w-1/2 flex flex-col items-center justify-center bg-gradient-to-br from-bauhaus to-bauhaus-dark p-6 sm:p-10 md:p-16 min-h-[220px] sm:min-h-[320px] md:min-h-[400px] dark:from-gray-900 dark:to-gray-800">
             <img
