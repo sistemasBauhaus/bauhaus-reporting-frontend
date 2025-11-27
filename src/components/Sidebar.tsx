@@ -20,10 +20,13 @@ const Sidebar: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
+  // Importa el hook de autenticación
+  // eslint-disable-next-line
+  const { hasPermiso, logout } = require('../hooks/useAuth').useAuth();
 
   const handleLogout = () => {
-    localStorage.removeItem('token'); // Elimina el token
-    navigate('/login'); // Redirige al login
+    logout();
+    navigate('/login');
   };
 
   return (
@@ -61,18 +64,20 @@ const Sidebar: React.FC = () => {
           {/* Menú */}
           <nav className="flex-1 py-6 space-y-2 flex flex-col items-center overflow-y-auto">
             {menuItems.map(item => (
-              <Link
-                key={item.label}
-                to={item.href}
-                className={`flex items-center px-2 py-2 rounded-lg hover:bg-blue-800 transition w-full
-                  ${collapsed ? 'justify-center' : 'justify-start pl-4'}`}
-                onClick={() => setOpen(false)}
-              >
-                {item.icon({ className: "text-lg" })}
-                {!collapsed && (
-                  <span className="text-base ml-2">{item.label}</span>
-                )}
-              </Link>
+              hasPermiso(`menu.${item.label.replace(/ /g, '_').toLowerCase()}`) && (
+                <Link
+                  key={item.label}
+                  to={item.href}
+                  className={`flex items-center px-2 py-2 rounded-lg hover:bg-blue-800 transition w-full
+                    ${collapsed ? 'justify-center' : 'justify-start pl-4'}`}
+                  onClick={() => setOpen(false)}
+                >
+                  {item.icon({ className: "text-lg" })}
+                  {!collapsed && (
+                    <span className="text-base ml-2">{item.label}</span>
+                  )}
+                </Link>
+              )
             ))}
             
             {/* Sección de Reportes */}
@@ -82,32 +87,36 @@ const Sidebar: React.FC = () => {
               </div>
             )}
             {reportesItems.map(item => (
-              <Link
-                key={item.label}
-                to={item.href}
-                className={`flex items-center px-2 py-2 rounded-lg hover:bg-blue-800 transition w-full
-                  ${collapsed ? 'justify-center' : 'justify-start pl-4'}`}
-                onClick={() => setOpen(false)}
-              >
-                {item.icon({ className: "text-lg" })}
-                {!collapsed && (
-                  <span className="text-sm ml-2">{item.label}</span>
-                )}
-              </Link>
+              hasPermiso(`menu.${item.label.replace(/ /g, '_').toLowerCase()}`) && (
+                <Link
+                  key={item.label}
+                  to={item.href}
+                  className={`flex items-center px-2 py-2 rounded-lg hover:bg-blue-800 transition w-full
+                    ${collapsed ? 'justify-center' : 'justify-start pl-4'}`}
+                  onClick={() => setOpen(false)}
+                >
+                  {item.icon({ className: "text-lg" })}
+                  {!collapsed && (
+                    <span className="text-sm ml-2">{item.label}</span>
+                  )}
+                </Link>
+              )
             ))}
             
             {/* Gestión de Usuarios - SIEMPRE abajo de todo, antes de cerrar sesión */}
-            <Link
-              to="/usuarios"
-              className={`flex items-center px-2 py-2 rounded-lg hover:bg-blue-800 transition w-full mt-auto
-                ${collapsed ? 'justify-center' : 'justify-start pl-4'}`}
-              onClick={() => setOpen(false)}
-            >
-              {FiUser({ className: "text-lg" })}
-              {!collapsed && (
-                <span className="text-base ml-2">Gestión de Usuarios</span>
-              )}
-            </Link>
+            {hasPermiso('menu.gestion_usuarios') && (
+              <Link
+                to="/usuarios"
+                className={`flex items-center px-2 py-2 rounded-lg hover:bg-blue-800 transition w-full mt-auto
+                  ${collapsed ? 'justify-center' : 'justify-start pl-4'}`}
+                onClick={() => setOpen(false)}
+              >
+                {FiUser({ className: "text-lg" })}
+                {!collapsed && (
+                  <span className="text-base ml-2">Gestión de Usuarios</span>
+                )}
+              </Link>
+            )}
           </nav>
           {/* Logout */}
           <div className="py-6 border-t border-blue-800 flex flex-col items-center">

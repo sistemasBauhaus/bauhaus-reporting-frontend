@@ -1,22 +1,39 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import {
   Box,
   TextField,
   Button,
   MenuItem,
   Typography,
-  FormControlLabel,
   Switch,
+  FormControlLabel,
+  Checkbox,
+  Divider,
+  Paper,
   InputAdornment,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions
+  IconButton
 } from '@mui/material';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
-import { getEmpresas, getRoles } from '../api/auth';
+import { getPermisosList, getUserPermisos } from '../api/usuarios';
+
+// Nombres amigables
+const PERMISO_LABELS: Record<string, string> = {
+  "menu.inicio": "Inicio",
+  "menu.reporte_diario": "Reporte Diario",
+  "menu.ventas_diarias": "Ventas Diarias",
+  "menu.niveles_tanques": "Niveles de Tanques",
+  "menu.saldos_cuentas_corrientes": "Saldos Cuentas Corrientes",
+  "menu.compras_discriminadas": "Compras Discriminadas",
+  "menu.facturas_proveedores": "Facturas Proveedores",
+  "menu.unidades_empresa": "Unidades de Empresa",
+  "menu.gestion_usuarios": "Gestión de Usuarios",
+};
 
 type Empresa = { empresa_id: number; nombre: string };
 type Rol = { rol_id: number; nombre: string };
@@ -29,299 +46,315 @@ type Usuario = {
   empresa_id: number;
   rol_id: number;
   activo: boolean;
-  password?: string;
-  empresa?: string; // <-- opcional
-  rol?: string;     // <-- opcional
+  empresa?: string;
+  rol?: string;
 };
 
 type Props = {
   usuario: Usuario;
-  onSave: (usuarioActualizado: Usuario) => Promise<void>;
+  empresas: Empresa[];
+  roles: Rol[];
+  onSave: (usuarioEditado: any) => Promise<void>;
   onCancel: () => void;
-  empresas?: Empresa[];
-  roles?: Rol[];
 };
 
 const FormEditUser: React.FC<Props> = ({
   usuario,
+  empresas,
+  roles,
   onSave,
-  onCancel,
-  empresas = [],
-  roles = []
+  onCancel
 }) => {
-  const [form, setForm] = useState<Usuario>(usuario);
+  const navigate = useNavigate();
+  const [successOpen, setSuccessOpen] = useState(false);
+  const [errorOpen, setErrorOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [successModal, setSuccessModal] = useState(false);
-  const [empresasData, setEmpresas] = useState<Empresa[]>([]);
-  const [rolesData, setRoles] = useState<Rol[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [superadmin, setSuperadmin] = useState(false);
+  const [form, setForm] = useState({
+    ...usuario,
+    password: "",
+    permisos: [] as number[]
+  });
+  const [permisosList, setPermisosList] = useState<{ id: number; nombre: string }[]>([]);
+  const [errors, setErrors] = useState<any>({});
 
   useEffect(() => {
-    async function fetchData() {
+    const cargar = async () => {
       try {
-        const empresasResponse = await getEmpresas();
-        const rolesResponse = await getRoles();
-        console.log('Empresas API:', empresasResponse);
-        console.log('Roles API:', rolesResponse);
-        setEmpresas(Array.isArray(empresasResponse.empresas) ? empresasResponse.empresas : []);
-        setRoles(Array.isArray(rolesResponse.roles) ? rolesResponse.roles : Array.isArray(rolesResponse) ? rolesResponse : []);
-      } catch (error) {
-        setEmpresas([]);
-        setRoles([]);
+        const listaPermisos = await getPermisosList();
+        const usuarioPermisos = await getUserPermisos(usuario.user_id);
+        setPermisosList(listaPermisos.permisos || []);
+        let permisosArray = usuarioPermisos.permisos_ids ?? usuarioPermisos.permisos ?? [];
+        if (Array.isArray(permisosArray) && permisosArray.length > 0 && typeof permisosArray[0] === 'object') {
+          permisosArray = permisosArray.map(p => p.id);
+        }
+        console.log('Permisos del usuario:', permisosArray);
+        setForm(f => ({
+          ...f,
+          permisos: Array.isArray(permisosArray) ? permisosArray : []
+        }));
+        // Si el usuario tiene todos los permisos, activa superadmin
+        if (Array.isArray(permisosArray) && listaPermisos.permisos && permisosArray.length === listaPermisos.permisos.length) {
+          setSuperadmin(true);
+        } else {
+          setSuperadmin(false);
+        }
+      } catch (err) {
+        console.error("Error cargando permisos", err);
       }
-      setLoading(false);
-    }
-    fetchData();
-  }, []);
-
+    };
+    cargar();
+  }, [usuario]);
+  // Actualiza los permisos si superadmin cambia
   useEffect(() => {
-    if (
-      empresasData.length > 0 &&
-      rolesData.length > 0 &&
-      usuario &&
-      typeof usuario.empresa_id === 'number' &&
-      typeof usuario.rol_id === 'number'
-    ) {
-      setForm({
-        ...usuario,
-        empresa_id: usuario.empresa_id,
-        rol_id: usuario.rol_id,
-      });
-      console.log('Form inicializado:', {
-        ...usuario,
-        empresa_id: usuario.empresa_id,
-        rol_id: usuario.rol_id,
-      });
-    }
-  }, [usuario, empresasData, rolesData]);
-
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-    setForm(prev => ({
-      ...prev,
-      [name]: value,
+    setForm(f => ({
+      ...f,
+      permisos: superadmin ? permisosList.map(p => p.id) : f.permisos
     }));
-  };
+  }, [superadmin, permisosList]);
 
-  const handleEmpresaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm(prev => ({
-      ...prev,
-      empresa_id: Number(e.target.value), // fuerza a número
-    }));
+  const togglePermiso = (id: number) => {
+    setForm(prev => {
+      const nuevosPermisos = prev.permisos.includes(id)
+        ? prev.permisos.filter(p => p !== id)
+        : [...prev.permisos, id];
+      console.log('Permisos actualizados:', nuevosPermisos);
+      return {
+        ...prev,
+        permisos: nuevosPermisos
+      };
+    });
   };
-
-  const handleRolChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm(prev => ({
-      ...prev,
-      rol_id: Number(e.target.value), // fuerza a número
-    }));
-  };
-
-  const handleSwitch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm(prev => ({
-      ...prev,
-      activo: e.target.checked,
-    }));
-  };
-
-  const handleClickShowPassword = () => setShowPassword(show => !show);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Enviar permisos_ids en vez de permisos
+    const payload = {
+      ...form,
+      permisos_ids: form.permisos
+    };
+    console.log('Enviando usuario editado:', payload);
     try {
-      await onSave(form);
-      setSuccessModal(true);
-    } catch (error) {
-      alert('Error al guardar usuario');
+      await onSave(payload);
+      setSuccessOpen(true);
+    } catch (err) {
+      setErrorOpen(true);
     }
   };
 
-  const handleSuccessClose = () => {
-    setSuccessModal(false);
-    onCancel();
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[200px] bg-white">
-        <span className="text-blue-700 text-sm font-medium animate-pulse px-2 py-1">
-          Cargando datos de usuario...
-        </span>
-      </div>
-    );
-  }
-
   return (
     <>
-      <Dialog open onClose={onCancel} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          <Typography variant="h5" fontWeight={700} color="primary" textAlign="center">
-            Editar Usuario
-          </Typography>
-        </DialogTitle>
-        <DialogContent>
-          <Box
-            component="form"
-            sx={{
-              mt: 1,
-              minWidth: 400,
-              maxWidth: 700,
-              mx: 'auto',
-              p: 1
-            }}
-            onSubmit={handleSubmit}
-          >
-            <Box sx={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 4
-            }}>
-              <Box sx={{ flex: 1, minWidth: 260, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <TextField
-                  label="Nombre de usuario"
-                  name="nombre_usuario"
-                  value={form.nombre_usuario}
-                  onChange={handleChange}
-                  fullWidth
-                  variant="outlined"
-                  required
-                  size="medium"
+      <Paper
+        elevation={4}
+        sx={{
+          width: '100%',
+          maxWidth: '1000px',
+          margin: '32px auto',
+          p: 0,
+          borderRadius: 4,
+          background: '#f8fafc',
+          boxShadow: '0 4px 16px rgba(30,60,114,0.10)',
+        }}
+        component="form"
+        onSubmit={handleSubmit}
+      >
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, width: '100%' }}>
+          {/* Columna izquierda: datos usuario */}
+          <Box sx={{ flex: 1, p: 4, borderRadius: 4 }}>
+            <Typography variant="h5" fontWeight={900} sx={{ mb: 2, color: '#1e3c72' }}>
+              Editar Usuario
+            </Typography>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={superadmin}
+                  onChange={e => setSuperadmin(e.target.checked)}
+                  color="primary"
                 />
-                <TextField
-                  label="DNI"
-                  name="dni"
-                  value={form.dni || ''}
-                  onChange={handleChange}
-                  fullWidth
-                  variant="outlined"
-                  size="medium"
-                />
-                <TextField
-                  select
-                  label="Empresa"
-                  name="empresa_id"
-                  value={form.empresa_id ?? empresasData[0]?.empresa_id ?? ''}
-                  onChange={handleEmpresaChange}
-                  fullWidth
-                  variant="outlined"
-                  required
-                  size="medium"
-                >
-                  {empresasData.map(emp => (
-                    <MenuItem key={emp.empresa_id} value={emp.empresa_id}>
-                      {emp.nombre}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Box>
-              <Box sx={{ flex: 1, minWidth: 260, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <TextField
-                  label="Email"
-                  name="email"
-                  type="email"
-                  value={form.email}
-                  onChange={handleChange}
-                  fullWidth
-                  variant="outlined"
-                  required
-                  size="medium"
-                />
-                <TextField
-                  label="Contraseña"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={form.password || ''}
-                  onChange={handleChange}
-                  fullWidth
-                  variant="outlined"
-                  size="medium"
-                  placeholder="Nueva contraseña"
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          aria-label="Mostrar contraseña"
-                          onClick={handleClickShowPassword}
-                          edge="end"
-                        >
-                          {showPassword ? <VisibilityOff /> : <Visibility />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-                <TextField
-                  select
-                  label="Rol"
-                  name="rol_id"
-                  value={form.rol_id ?? rolesData[0]?.rol_id ?? ''}
-                  onChange={handleRolChange}
-                  fullWidth
-                  variant="outlined"
-                  required
-                  size="medium"
-                >
-                  {rolesData.map(rol => (
-                    <MenuItem key={rol.rol_id} value={rol.rol_id}>
-                      {rol.nombre}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Box>
+              }
+              label={
+                <Typography fontWeight={700} color="primary.main">
+                  Superadmin (todos los permisos)
+                </Typography>
+              }
+              sx={{ mb: 2 }}
+            />
+            <Divider sx={{ my: 2 }} />
+            {/* Empresa y Rol en la misma fila */}
+            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+              <TextField
+                select
+                label="Empresa"
+                value={form.empresa_id}
+                onChange={e => setForm(f => ({ ...f, empresa_id: Number(e.target.value) }))}
+                error={!!errors.empresa_id}
+                sx={{ flex: 1 }}
+              >
+                {empresas.map(emp => (
+                  <MenuItem key={emp.empresa_id} value={emp.empresa_id}>
+                    {emp.nombre}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                select
+                label="Rol"
+                value={form.rol_id}
+                onChange={e => setForm(f => ({ ...f, rol_id: Number(e.target.value) }))}
+                error={!!errors.rol_id}
+                sx={{ flex: 1 }}
+              >
+                {roles.map(rol => (
+                  <MenuItem key={rol.rol_id} value={rol.rol_id}>
+                    {rol.nombre}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Box>
+            <TextField
+              label="Nombre de usuario"
+              value={form.nombre_usuario}
+              onChange={e => setForm(f => ({ ...f, nombre_usuario: e.target.value }))}
+              error={!!errors.nombre_usuario}
+              helperText={errors.nombre_usuario}
+              fullWidth
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              label="Email"
+              value={form.email}
+              onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+              error={!!errors.email}
+              helperText={errors.email}
+              fullWidth
+              sx={{ mb: 2 }}
+            />
+            {/* DNI y Contraseña en la misma fila */}
+            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+              <TextField
+                label="DNI"
+                value={form.dni || ''}
+                onChange={e => setForm(f => ({ ...f, dni: e.target.value }))}
+                error={!!errors.dni}
+                helperText={errors.dni}
+                fullWidth
+              />
+              <TextField
+                label="Nueva contraseña "
+                type={showPassword ? 'text' : 'password'}
+                value={form.password}
+                onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                error={!!errors.password}
+                helperText={errors.password}
+                fullWidth
+                InputProps={{
+                  endAdornment: (
+                    <Button
+                      onClick={() => setShowPassword((show) => !show)}
+                      sx={{ minWidth: 0, p: 0 }}
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </Button>
+                  )
+                }}
+              />
             </Box>
             <FormControlLabel
               control={
                 <Switch
                   checked={form.activo}
-                  onChange={handleSwitch}
+                  onChange={e => setForm(f => ({ ...f, activo: e.target.checked }))}
                   color="primary"
                 />
               }
               label={form.activo ? 'Activo' : 'Inactivo'}
-              sx={{ mt: 3 }}
+              sx={{ mb: 2 }}
             />
-            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 4 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
               <Button
-                onClick={onCancel}
                 variant="outlined"
-                sx={{
-                  borderColor: 'primary.main',
-                  color: 'primary.main',
-                  fontWeight: 600,
-                  px: 3,
-                  py: 1,
-                  fontSize: 16,
-                  '&:hover': { borderColor: 'primary.dark', color: 'primary.dark' }
-                }}
+                onClick={onCancel}
+                sx={{ px: 4, fontWeight: 700, borderRadius: 2, borderColor: '#1e3c72', color: '#1e3c72' }}
               >
                 Cancelar
               </Button>
               <Button
-                type="submit"
                 variant="contained"
-                color="primary"
-                sx={{ fontWeight: 600, px: 3, py: 1, fontSize: 16 }}
+                type="submit"
+                sx={{
+                  px: 4,
+                  fontWeight: 700,
+                  borderRadius: 2,
+                  background: 'linear-gradient(90deg,#1e3c72,#2a5298)',
+                  color: '#fff',
+                  boxShadow: '0 2px 8px rgba(30,60,114,0.10)'
+                }}
               >
-                Guardar
+                Guardar Cambios
               </Button>
             </Box>
           </Box>
+          {/* Columna derecha: permisos */}
+          <Box sx={{ flex: 1, p: 4, borderLeft: { md: '2px solid #e0e6f1' }, background: '#f8fafc', borderRadius: 4 }}>
+            <Typography variant="h5" fontWeight={900} sx={{ color: '#1e3c72', mb: 2 }}>
+              Permisos
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 2, color: '#526074', fontWeight: 500 }}>
+              Modificá los permisos del usuario.
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            <Box sx={{ maxHeight: '400px', overflowY: 'auto', pr: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {permisosList.map(perm => (
+                <Box
+                  key={perm.id}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    py: 1,
+                    px: 0,
+                    borderBottom: '1px solid #e5e7eb',
+                  }}
+                >
+                  <Checkbox
+                    checked={form.permisos.includes(perm.id)}
+                    onChange={() => togglePermiso(perm.id)}
+                    sx={{ color: '#1e3c72' }}
+                  />
+                  <Typography fontWeight={500} sx={{ color: '#1e3c72', ml: 1 }}>
+                    {PERMISO_LABELS[perm.nombre] || perm.nombre}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          </Box>
+        </Box>
+      </Paper>
+      <Dialog open={successOpen} onClose={() => {}}>
+        <DialogTitle>Usuario editado con éxito</DialogTitle>
+        <DialogContent>
+          <Typography>Los cambios fueron guardados correctamente.</Typography>
         </DialogContent>
-      </Dialog>
-
-      {/* Modal de éxito */}
-      <Dialog open={successModal} onClose={handleSuccessClose}>
-        <DialogTitle>
-          <Typography variant="h6" color="success.main" textAlign="center">
-            Usuario editado con éxito
-          </Typography>
-        </DialogTitle>
         <DialogActions>
-          <Button onClick={handleSuccessClose} variant="contained" color="primary">
-            Volver
+          <Button
+            onClick={() => {
+              setSuccessOpen(false);
+              navigate('/gestion-usuarios');
+            }}
+            variant="contained"
+            color="primary"
+          >
+            Ir a Gestión de Usuarios
           </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog open={errorOpen} onClose={() => setErrorOpen(false)}>
+        <DialogTitle>Error al editar usuario</DialogTitle>
+        <DialogContent>
+          <Typography color="error">No se pudo editar el usuario. Intente nuevamente.</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setErrorOpen(false)} color="primary">Cerrar</Button>
         </DialogActions>
       </Dialog>
     </>

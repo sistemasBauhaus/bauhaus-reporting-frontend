@@ -8,8 +8,8 @@ module.exports = {
       colors: {
         bauhaus: {
           light: '#e3eafc',
-          DEFAULT: '#1d3570',
-          dark: '#13224d',
+          DEFAULT: '#1746a0', // azul profesional
+          dark: '#0c2340',    // azul oscuro elegante
         },
       },
     },
