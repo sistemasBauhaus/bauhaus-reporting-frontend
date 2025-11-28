@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
-  fetchFacturasProveedoresPorMes,
-  FacturasProveedorPorMes,
+  fetchFacturasVenta,
+  FacturaVenta,
 } from '../../api/reportes';
 
 interface FacturasProveedoresPendientesProps {
@@ -15,7 +15,7 @@ const FacturasProveedoresPendientes: React.FC<FacturasProveedoresPendientesProps
   fechaFin: propFechaFin,
   onFechaChange,
 }) => {
-  const [data, setData] = useState<FacturasProveedorPorMes[]>([]);
+  const [data, setData] = useState<FacturaVenta[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fechaInicio, setFechaInicio] = useState<string>(propFechaInicio || '');
@@ -48,25 +48,17 @@ const FacturasProveedoresPendientes: React.FC<FacturasProveedoresPendientesProps
     setLoading(true);
     setError(null);
     try {
-      const result = await fetchFacturasProveedoresPorMes(fechaInicio, fechaFin);
+      const result = await fetchFacturasVenta(fechaInicio, fechaFin);
       setData(result);
       
-      // Si no hay datos, mostrar advertencia
+      // Si no hay datos, mostrar mensaje
       if (result.length === 0) {
-        setError('No se encontraron facturas para el período seleccionado. Se muestran datos de demostración.');
+        setError('No se encontraron facturas para el período seleccionado.');
       }
     } catch (err) {
       const errorMessage = (err as Error).message;
-      setError(`Error al cargar datos: ${errorMessage}. Se muestran datos de demostración.`);
-      // La función fetchFacturasProveedoresPorMes ya maneja errores y retorna datos mock
-      // Pero si falla completamente, usar datos hardcodeados como respaldo
-      setData([
-        { proveedor: "YPF S.A.", total_importe: 4850000, cantidad_facturas: 2 },
-        { proveedor: "Shell Argentina", total_importe: 6240000, cantidad_facturas: 1 },
-        { proveedor: "Axion Energy", total_importe: 2550000, cantidad_facturas: 1 },
-        { proveedor: "Repsol YPF", total_importe: 1800000, cantidad_facturas: 3 },
-        { proveedor: "Petrobras", total_importe: 950000, cantidad_facturas: 2 },
-      ]);
+      setError(`Error al cargar datos: ${errorMessage}`);
+      setData([]);
     }
     setLoading(false);
   };
@@ -79,17 +71,16 @@ const FacturasProveedoresPendientes: React.FC<FacturasProveedoresPendientesProps
     );
   }
 
-  const totalImporte = data.reduce((sum, item) => sum + item.total_importe, 0);
-  const totalFacturas = data.reduce((sum, item) => sum + item.cantidad_facturas, 0);
+  const totalMonto = data.reduce((sum, item) => sum + (item.MontoTotal || 0), 0);
 
   return (
     <div className="py-6 px-2 md:px-6 min-h-screen bg-gradient-to-br from-white to-blue-50">
       <div className="max-w-full mx-auto">
         <h1 className="text-3xl md:text-4xl font-extrabold text-blue-900 mb-6 text-center">
-          Facturas de Proveedores por Mes
+          Facturas de Proveedores
         </h1>
 
-        {/* Mensaje de advertencia si hay datos mock */}
+        {/* Mensaje de error o advertencia */}
         {error && (
           <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-xl p-4 shadow-sm">
             <p className="text-yellow-800 text-sm font-medium">{error}</p>
@@ -128,36 +119,31 @@ const FacturasProveedoresPendientes: React.FC<FacturasProveedoresPendientesProps
           </div>
         )}
 
-        {/* Cards Totales */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        {/* Card Total */}
+        <div className="grid grid-cols-1 md:grid-cols-1 gap-4 mb-6">
           <div className="bg-white border border-blue-100 rounded-xl shadow flex flex-col items-center py-6 px-4">
-            <span className="text-sm font-semibold text-blue-700 mb-1">Total Importe del Mes</span>
+            <span className="text-sm font-semibold text-blue-700 mb-1">Total Monto</span>
             <span className="text-2xl md:text-3xl font-extrabold text-blue-900">
-              ${totalImporte.toLocaleString('es-AR', { maximumFractionDigits: 2 })}
+              ${totalMonto.toLocaleString('es-AR', { maximumFractionDigits: 2 })}
             </span>
-          </div>
-          <div className="bg-white border border-blue-100 rounded-xl shadow flex flex-col items-center py-6 px-4">
-            <span className="text-sm font-semibold text-blue-700 mb-1">Total Facturas</span>
-            <span className="text-2xl md:text-3xl font-extrabold text-blue-900">{totalFacturas}</span>
           </div>
         </div>
 
-        {/* Tabla: Suma de facturas por proveedor ordenadas de mayor a menor */}
+        {/* Tabla de facturas */}
         <div className="bg-white border border-blue-100 rounded-xl shadow overflow-x-auto">
           <div className="px-4 md:px-8 pt-6 pb-3">
             <h2 className="text-lg font-bold text-blue-900 mb-2">
-              Suma de Facturas por Proveedor (Ordenadas de Mayor a Menor)
+              Facturas
             </h2>
-            <p className="text-sm text-gray-600">Agrupadas por proveedor y ordenadas por valor total</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-blue-900 text-sm">
               <thead className="bg-blue-50">
                 <tr>
-                  <th className="py-3 px-4 md:px-6 text-left font-semibold">Proveedor</th>
-                  <th className="py-3 px-4 md:px-6 text-right font-semibold">Cantidad Facturas</th>
-                  <th className="py-3 px-4 md:px-6 text-right font-semibold">Total Importe</th>
-                  <th className="py-3 px-4 md:px-6 text-right font-semibold">% del Total</th>
+                  <th className="py-3 px-4 md:px-6 text-left font-semibold">IdFactura</th>
+                  <th className="py-3 px-4 md:px-6 text-left font-semibold">FechaEmision</th>
+                  <th className="py-3 px-4 md:px-6 text-right font-semibold">MontoTotal</th>
+                  <th className="py-3 px-4 md:px-6 text-left font-semibold">NombreCliente</th>
                 </tr>
               </thead>
               <tbody>
@@ -169,34 +155,30 @@ const FacturasProveedoresPendientes: React.FC<FacturasProveedoresPendientesProps
                   </tr>
                 ) : (
                   <>
-                    {data.map((item, index) => {
-                      const porcentaje = totalImporte > 0 ? (item.total_importe / totalImporte) * 100 : 0;
-                      return (
-                        <tr
-                          key={item.proveedor}
-                          className={`border-t border-blue-100 hover:bg-blue-50 transition ${
-                            index % 2 === 0 ? 'bg-white' : 'bg-blue-25'
-                          }`}
-                        >
-                          <td className="py-3 px-4 md:px-6 font-semibold">{item.proveedor}</td>
-                          <td className="py-3 px-4 md:px-6 text-right">{item.cantidad_facturas}</td>
-                          <td className="py-3 px-4 md:px-6 text-right font-semibold text-blue-900">
-                            ${item.total_importe.toLocaleString('es-AR', { maximumFractionDigits: 2 })}
-                          </td>
-                          <td className="py-3 px-4 md:px-6 text-right text-gray-600">
-                            {porcentaje.toFixed(2)}%
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {data.map((item, index) => (
+                      <tr
+                        key={item.IdFactura || index}
+                        className={`border-t border-blue-100 hover:bg-blue-50 transition ${
+                          index % 2 === 0 ? 'bg-white' : 'bg-blue-25'
+                        }`}
+                      >
+                        <td className="py-3 px-4 md:px-6">{item.IdFactura || '-'}</td>
+                        <td className="py-3 px-4 md:px-6">
+                          {item.FechaEmision ? new Date(item.FechaEmision).toLocaleDateString('es-AR') : '-'}
+                        </td>
+                        <td className="py-3 px-4 md:px-6 text-right font-semibold text-blue-900">
+                          ${(item.MontoTotal || 0).toLocaleString('es-AR', { maximumFractionDigits: 2 })}
+                        </td>
+                        <td className="py-3 px-4 md:px-6">{item.NombreCliente || '-'}</td>
+                      </tr>
+                    ))}
                     {/* Fila de totales */}
                     <tr className="bg-blue-100 font-bold border-t-2 border-blue-300">
-                      <td className="py-3 px-4 md:px-6">TOTAL</td>
-                      <td className="py-3 px-4 md:px-6 text-right">{totalFacturas}</td>
+                      <td className="py-3 px-4 md:px-6" colSpan={2}>TOTAL</td>
                       <td className="py-3 px-4 md:px-6 text-right">
-                        ${totalImporte.toLocaleString('es-AR', { maximumFractionDigits: 2 })}
+                        ${totalMonto.toLocaleString('es-AR', { maximumFractionDigits: 2 })}
                       </td>
-                      <td className="py-3 px-4 md:px-6 text-right">100.00%</td>
+                      <td className="py-3 px-4 md:px-6"></td>
                     </tr>
                   </>
                 )}

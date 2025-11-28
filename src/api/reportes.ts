@@ -1508,6 +1508,81 @@ export async function fetchFacturasVentaAC(
  * Usa el endpoint /api/Facturacion/GetFacturasCompra
  * Ordenadas de mayor a menor valor
  */
+/**
+ * Obtiene facturas de venta desde GetFacturasVenta
+ * Parámetros: desdeFecha, hastaFecha (formato: YYYY-MM-DD)
+ * Respuesta: IdFactura, FechaEmision, MontoTotal, NombreCliente
+ */
+export async function fetchFacturasVenta(
+  fechaInicio?: string,
+  fechaFin?: string
+): Promise<FacturaVenta[]> {
+  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:4000/api";
+  
+  // Obtener token de autenticación
+  const token = localStorage.getItem('token');
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  // Si no se proporcionan fechas, usar el mes actual
+  if (!fechaInicio || !fechaFin) {
+    const hoy = new Date();
+    const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    fechaInicio = primerDiaMes.toISOString().split('T')[0];
+    fechaFin = hoy.toISOString().split('T')[0];
+  }
+  
+  try {
+    const params = new URLSearchParams();
+    params.append("desdeFecha", fechaInicio);
+    params.append("hastaFecha", fechaFin);
+    
+    const response = await fetch(`${API_URL}/Facturacion/GetFacturasVenta?${params.toString()}`, {
+      method: 'GET',
+      headers: headers
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
+    }
+    
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      const text = await response.text();
+      throw new Error(`El backend devolvió ${contentType || 'text/html'} en lugar de JSON. Respuesta: ${text.substring(0, 200)}`);
+    }
+    
+    const json = await response.json();
+    
+    // Manejar diferentes formatos de respuesta
+    let data: any[] = [];
+    if (Array.isArray(json)) {
+      data = json;
+    } else if (json.ok && Array.isArray(json.data)) {
+      data = json.data;
+    } else if (json.data && Array.isArray(json.data)) {
+      data = json.data;
+    } else {
+      throw new Error(json.error || json.message || "Formato de respuesta inesperado");
+    }
+    
+    // Mapear a la interfaz FacturaVenta
+    return data.map((item: any) => ({
+      IdFactura: item.IdFactura || item.idFactura,
+      FechaEmision: item.FechaEmision || item.fechaEmision,
+      MontoTotal: item.MontoTotal || item.montoTotal || 0,
+      NombreCliente: item.NombreCliente || item.nombreCliente || '',
+    }));
+  } catch (error) {
+    console.error("Error al obtener facturas de venta:", error);
+    throw error;
+  }
+}
+
 export async function fetchFacturasProveedoresPorMes(
   fechaInicio?: string,
   fechaFin?: string

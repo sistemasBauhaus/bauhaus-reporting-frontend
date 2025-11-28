@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchReporteSubdiario, fetchFacturasVentaAC, RegistroSubdiario, FacturaVenta } from '../../api/reportes';
+import { fetchReporteSubdiario, RegistroSubdiario } from '../../api/reportes';
 
 interface VentasDiariasProps {
   fechaInicio?: string;
@@ -82,122 +82,15 @@ const VentasDiarias: React.FC<VentasDiariasProps> = ({
     }
   }, [fechaInicio, fechaFin]);
 
-  // Función para debug: obtener y mostrar facturas en consola
-  const debugFacturasVenta = async () => {
-    try {
-      const API_URL = process.env.REACT_APP_API_URL || "http://localhost:4000/api";
-      const token = localStorage.getItem('token');
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      
-      // Convertir fechas al formato YYYYMMDD requerido por GetFacturasVenta
-      // Según la documentación: "en formato YYYYMMDD"
-      const convertirFecha = (fecha: string): string => {
-        // Si ya está en formato YYYYMMDD, retornar tal cual
-        if (/^\d{8}$/.test(fecha)) return fecha;
-        // Si está en formato YYYY-MM-DD, convertir a YYYYMMDD
-        if (/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
-          return fecha.replace(/-/g, '');
-        }
-        // Intentar parsear como Date y convertir
-        const date = new Date(fecha);
-        if (!isNaN(date.getTime())) {
-          const anio = date.getFullYear();
-          const mes = String(date.getMonth() + 1).padStart(2, '0');
-          const dia = String(date.getDate()).padStart(2, '0');
-          return `${anio}${mes}${dia}`;
-        }
-        return fecha;
-      };
-      
-      const desdeFechaFormato = convertirFecha(fechaInicio);
-      const hastaFechaFormato = convertirFecha(fechaFin);
-      
-      const params = new URLSearchParams();
-      params.append("desdeFecha", desdeFechaFormato);
-      params.append("hastaFecha", hastaFechaFormato);
-      
-      console.log('🔍 [DEBUG] Llamando a GetFacturasVenta...');
-      console.log('🔍 [DEBUG] Parámetros:', { desdeFecha: desdeFechaFormato, hastaFecha: hastaFechaFormato });
-      
-      const response = await fetch(`${API_URL}/Facturacion/GetFacturasVenta?${params.toString()}`, {
-        method: 'GET',
-        headers: headers
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
-      }
-      
-      const json = await response.json();
-      
-      console.log('✅ [DEBUG] Respuesta completa de GetFacturasVenta:');
-      console.log(JSON.stringify(json, null, 2));
-      
-      // Mostrar también solo las facturas AC
-      let data: any[] = [];
-      if (Array.isArray(json)) {
-        data = json;
-      } else if (json.ok && Array.isArray(json.data)) {
-        data = json.data;
-      } else if (json.data && Array.isArray(json.data)) {
-        data = json.data;
-      }
-      
-      const facturasAC = data.filter((factura: any) => {
-        const nombreCliente = factura.NombreCliente || factura.nombreCliente || factura.Cliente || factura.cliente || '';
-        return nombreCliente.toUpperCase().trim() === 'AXION CARD';
-      });
-      
-      console.log('🎯 [DEBUG] Facturas con cliente "Axion Card":');
-      console.log(JSON.stringify(facturasAC, null, 2));
-      console.log(`📊 [DEBUG] Total facturas: ${data.length}, Facturas AC: ${facturasAC.length}`);
-      
-      // Mostrar estructura de la primera factura
-      if (data.length > 0) {
-        console.log('📋 [DEBUG] Estructura de la primera factura:');
-        console.log(JSON.stringify(data[0], null, 2));
-      }
-      
-      alert(`✅ Resultado en consola. Total facturas: ${data.length}, Facturas AC: ${facturasAC.length}`);
-    } catch (error) {
-      console.error('❌ [DEBUG] Error al obtener facturas:', error);
-      alert(`❌ Error: ${(error as Error).message}`);
-    }
-  };
-
   const fetchData = async () => {
     setLoading(true);
     setError(null);
     try {
-      // Obtener facturas AC y datos del subdiario en paralelo
-      const [facturasAC, rawData] = await Promise.all([
-        fetchFacturasVentaAC(fechaInicio, fechaFin),
-        fetchReporteSubdiario(fechaInicio, fechaFin)
-      ]);
-      
-      // Crear un mapa de facturas AC por fecha para relacionar con ventas del subdiario
-      // Como el subdiario no tiene número de factura, relacionamos por fecha y productos específicos
-      const facturasACPorFecha = new Map<string, Set<string>>(); // fecha -> Set de productos que son AC
+      // Obtener datos del subdiario
+      const rawData = await fetchReporteSubdiario(fechaInicio, fechaFin);
       
       // Productos que típicamente se venden con Axion Card (Diesel X10, Quantium Diesel)
       const productosAC = ['DIESEL X10', 'QUANTIUM DIESEL', 'QUANTUM DIESEL'];
-      
-      facturasAC.forEach((factura: FacturaVenta) => {
-        const fechaFactura = factura.FechaEmision || factura.fechaEmision || '';
-        if (fechaFactura) {
-          const fechaNormalizada = fechaFactura.split('T')[0]; // YYYY-MM-DD
-          if (!facturasACPorFecha.has(fechaNormalizada)) {
-            facturasACPorFecha.set(fechaNormalizada, new Set<string>());
-          }
-          // Marcar que en esta fecha hay facturas AC (para productos específicos)
-          facturasACPorFecha.get(fechaNormalizada)!.add('AC_FECHA');
-        }
-      });
       
       // Separar en dos mapas: uno para AC y otro para Directos
       const ventasPorFechaAC = new Map<string, VentaDiariaAC>();
@@ -209,22 +102,23 @@ const VentasDiarias: React.FC<VentasDiariasProps> = ({
         const litros = Number(item.litros || 0);
         const importeNeto = Number(item.importe || 0);
         
-        // Determinar método de pago:
-        // 1. Si el producto es Diesel X10 o Quantium Diesel Y hay facturas AC en esa fecha -> AC
+        // Todas las ventas van a Directos (sin heurísticas)
+        // Determinar método de pago basado en heurísticas:
+        // 1. Si el producto es Diesel X10 o Quantium Diesel -> AC
         // 2. Si el nombre de caja incluye AC/AXION/CARD -> AC
-        // 3. Si hay número de factura y está en facturas AC -> AC
-        // 4. Sino -> Directos
-        const nombreCaja = (item.nombre_caja || '').toUpperCase();
-        const productoUpper = producto.toUpperCase();
-        const tieneFacturaACEnFecha = facturasACPorFecha.has(fecha);
-        const esProductoAC = productosAC.some(p => productoUpper.includes(p));
-        const numFactura = (item.numero_factura || item.factura_id || '').toString();
+        // 3. Sino -> Directos
+        // NOTA: Deshabilitado - todas las ventas van a Directos
+        // const nombreCaja = (item.nombre_caja || '').toUpperCase();
+        // const productoUpper = producto.toUpperCase();
+        // const esProductoAC = productosAC.some(p => productoUpper.includes(p));
+        // 
+        // const esAC = esProductoAC || 
+        //              nombreCaja.includes('AC') || 
+        //              nombreCaja.includes('AXION') || 
+        //              nombreCaja.includes('CARD');
         
-        const esAC = (esProductoAC && tieneFacturaACEnFecha) || 
-                     nombreCaja.includes('AC') || 
-                     nombreCaja.includes('AXION') || 
-                     nombreCaja.includes('CARD') ||
-                     (numFactura && facturasACPorFecha.has(fecha)); // Si hay factura AC en esa fecha y tenemos número
+        // Forzar todas las ventas a Directos
+        const esAC = false;
         
         if (esAC) {
           // Procesar para tabla AC
@@ -571,13 +465,6 @@ const VentasDiarias: React.FC<VentasDiariasProps> = ({
           <h1 className="text-3xl md:text-4xl font-extrabold text-blue-900 text-center">
             Ventas Diarias
           </h1>
-          <button
-            onClick={debugFacturasVenta}
-            className="bg-green-600 hover:bg-green-700 transition text-white px-5 py-2 rounded font-semibold shadow text-base whitespace-nowrap"
-            title="Debug: Ver respuesta de GetFacturasVenta en consola"
-          >
-             Debug Facturas
-          </button>
         </div>
 
         {/* Mensaje de advertencia si hay datos mock */}
@@ -614,13 +501,6 @@ const VentasDiarias: React.FC<VentasDiariasProps> = ({
                 className="bg-blue-700 hover:bg-blue-800 transition text-white px-5 py-2 rounded font-semibold shadow text-base"
               >
                 Buscar
-              </button>
-              <button
-                onClick={debugFacturasVenta}
-                className="bg-green-600 hover:bg-green-700 transition text-white px-5 py-2 rounded font-semibold shadow text-base"
-                title="Debug: Ver respuesta de GetFacturasVenta en consola"
-              >
-                🔍 Debug Facturas
               </button>
             </div>
           </div>
