@@ -2,14 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { fetchNivelesTanques, NivelTanque } from '../../api/tanques';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 
-interface NivelesTanquesProps {
-  fechaInicio?: string;
-  fechaFin?: string;
-  onFechaChange?: (inicio: string, fin: string) => void;
-}
+interface NivelesTanquesProps {}
 
-const NivelesTanques: React.FC<NivelesTanquesProps> = ({ fechaInicio, fechaFin, onFechaChange }) => {
+const NivelesTanques: React.FC<NivelesTanquesProps> = () => {
   const [data, setData] = useState<NivelTanque[]>([]);
+  const [filtro, setFiltro] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -17,7 +14,7 @@ const NivelesTanques: React.FC<NivelesTanquesProps> = ({ fechaInicio, fechaFin, 
     fetchData();
     const interval = setInterval(fetchData, 60000); // Actualiza cada 60 segundos
     return () => clearInterval(interval);
-  }, [fechaInicio, fechaFin]);
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -46,12 +43,14 @@ const NivelesTanques: React.FC<NivelesTanquesProps> = ({ fechaInicio, fechaFin, 
     );
   }
 
-  // Agrupar tanques por producto
-  const tanquesPorProducto: Record<string, NivelTanque[]> = {};
-  data.forEach((tanque) => {
-    const prod = tanque.producto.trim().toUpperCase();
-    if (!tanquesPorProducto[prod]) tanquesPorProducto[prod] = [];
-    tanquesPorProducto[prod].push(tanque);
+
+  // Filtrar datos según el filtro de texto
+  const dataFiltrada = data.filter(tanque => {
+    const texto = filtro.toLowerCase();
+    return (
+      tanque.producto.toLowerCase().includes(texto) ||
+      String(tanque.id_tanque).includes(texto)
+    );
   });
 
   const totalCapacidad = data.reduce((sum, item) => sum + (isNaN(Number(item.capacidad)) ? 0 : Number(item.capacidad)), 0);
@@ -78,16 +77,28 @@ const NivelesTanques: React.FC<NivelesTanquesProps> = ({ fechaInicio, fechaFin, 
     return '#10b981'; // verde
   };
 
+  // Obtener la fecha más reciente de los datos
+  const fechaMostrada = data.length > 0 ? new Date(data[0].fecha_actualizacion).toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
+
   return (
     <div className="py-6 px-2 md:px-6">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl md:text-4xl font-extrabold text-blue-900 mb-6 text-center">
-          Niveles de Tanques y Stock Valorizado
-        </h1>
+        <div className="flex flex-col items-center mb-6">
+          <h1 className="text-3xl md:text-4xl font-extrabold text-blue-900 mb-2 text-center">
+            Niveles de Tanques y Stock Valorizado
+          </h1>
+          {fechaMostrada && (
+            <div className="flex items-center gap-3 bg-white border border-blue-200 rounded-xl shadow px-6 py-3 mt-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+              <span className="text-base md:text-lg font-semibold text-blue-900">
+                <span className="text-blue-700 font-bold">Actualizado al:</span> {fechaMostrada}
+              </span>
+            </div>
+          )}
+        </div>
 
         {/* Cards Totales */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          {/* Removed Total Stock Valorizado card, not present in NivelTanque */}
           <div className="bg-white border border-blue-100 rounded-xl shadow flex flex-col items-center py-6 px-4">
             <span className="text-sm font-semibold text-blue-700 mb-1">Capacidad Total</span>
             <span className="text-xl md:text-2xl font-extrabold text-blue-900">{totalCapacidad.toLocaleString()} L</span>
@@ -105,7 +116,7 @@ const NivelesTanques: React.FC<NivelesTanquesProps> = ({ fechaInicio, fechaFin, 
         {/* Gráfico */}
         <div className="bg-white border border-blue-100 rounded-xl shadow p-4 md:p-6 mb-6">
           <h2 className="text-lg font-bold text-blue-900 mb-4">Niveles de Tanques</h2>
-          <ResponsiveContainer width="100%" height={400}>
+          <ResponsiveContainer width="100%" height={600}>
             <BarChart data={chartData} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis type="number" />
@@ -131,7 +142,7 @@ const NivelesTanques: React.FC<NivelesTanquesProps> = ({ fechaInicio, fechaFin, 
 
         {/* Tabla tanque por tanque */}
         <div className="bg-white border border-blue-100 rounded-xl shadow overflow-x-auto">
-          <div className="px-4 md:px-8 pt-6 pb-3">
+          <div className="px-4 md:px-8 pt-6 pb-3 flex flex-col items-center gap-2">
             <h2 className="text-lg font-bold text-blue-900 mb-2">Detalle de Tanques</h2>
           </div>
           <table className="w-full text-blue-900 text-sm">
@@ -148,14 +159,14 @@ const NivelesTanques: React.FC<NivelesTanquesProps> = ({ fechaInicio, fechaFin, 
               </tr>
             </thead>
             <tbody>
-              {data.length === 0 ? (
+              {dataFiltrada.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-8 text-center text-gray-500">
                     No hay datos disponibles
                   </td>
                 </tr>
               ) : (
-                data.map((tanque) => (
+                dataFiltrada.map((tanque) => (
                   <tr key={tanque.id_tanque} className="border-t border-blue-100 hover:bg-blue-50 transition">
                     <td className="py-3 px-4 md:px-6">Tanque {tanque.id_tanque}</td>
                     <td className="py-3 px-4 md:px-6">{tanque.producto}</td>

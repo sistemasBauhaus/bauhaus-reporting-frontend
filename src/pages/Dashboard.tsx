@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { fetchPcMensual, fetchPcResumenMensual } from '../api/pcMensual';
 import { 
   fetchNivelesTanques,
-  NivelTanque
+  fetchTanqueHistorico,
+  fetchTanqueHistoricoMes,
+  NivelTanque,
+  HistoricoTanqueDia
 } from '../api/tanques';
 import { 
   fetchCuentasACobrar, 
@@ -138,8 +141,43 @@ const Dashboard: React.FC = () => {
       });
       setProyectados(proyectadosCalculados);
       
-      // Cargar niveles de tanques
-      const niveles = await fetchNivelesTanques();
+      // Cargar niveles de tanques (histórico mensual si hay filtro de mes)
+      let niveles: NivelTanque[] = [];
+      if (fechaMesInicio) {
+        // Obtener tanques actuales para saber los IDs
+        const tanquesActuales = await fetchNivelesTanques();
+        console.log('Tanques actuales:', tanquesActuales);
+        const [anio, mes] = fechaMesInicio.slice(0, 7).split("-");
+        // Consultar histórico mensual para cada tanque
+        const tanquesConHistorico = await Promise.all(
+          tanquesActuales.map(async (t) => {
+            try {
+              const historicoMes: HistoricoTanqueDia[] = await fetchTanqueHistoricoMes(t.id_tanque, Number(mes), Number(anio));
+              console.log(`Histórico mensual tanque ${t.id_tanque} (${mes}/${anio}):`, historicoMes);
+              if (historicoMes.length === 0) return null; // No incluir tanques sin histórico
+              const ultimoDia = historicoMes[historicoMes.length - 1];
+              return {
+                ...t,
+                historicoMes,
+                nivel_actual: ultimoDia.nivel,
+                capacidad: ultimoDia.capacidad,
+                producto: ultimoDia.producto,
+                temperatura: ultimoDia.temperatura,
+                fecha_actualizacion: ultimoDia.fecha,
+                porcentaje: ultimoDia.capacidad > 0 ? (ultimoDia.nivel / ultimoDia.capacidad) * 100 : 0,
+              };
+            } catch (e) {
+              console.error(`Error histórico mensual tanque ${t.id_tanque}:`, e);
+              return null;
+            }
+          })
+        );
+        niveles = tanquesConHistorico.filter(Boolean) as NivelTanque[];
+        console.log('Niveles históricos mensuales enviados al dashboard:', niveles);
+      } else {
+        niveles = await fetchNivelesTanques();
+        console.log('Niveles actuales enviados al dashboard:', niveles);
+      }
       setNivelesTanques(niveles);
       
       // Cargar cuentas a cobrar y pagar
