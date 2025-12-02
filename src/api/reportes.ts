@@ -1,3 +1,4 @@
+import { fetchNivelesTanques, NivelTanque } from './tanques';
 /**
  * Convierte importes de centavos a pesos (divide por 100)
  * Los importes en la base de datos están almacenados como int8 (centavos)
@@ -85,17 +86,7 @@ export interface VentaProducto {
   fecha: string;
 }
 
-export interface NivelTanque {
-  tanque_id: number;
-  producto_id: number;
-  nombre_producto: string;
-  capacidad: number;
-  nivel_actual: number;
-  porcentaje: number;
-  valor_stock: number;
-  estacion_id: number;
-  nombre_estacion: string;
-}
+
 
 export interface SaldoCuentaCorriente {
   cliente_id: number;
@@ -258,113 +249,8 @@ function getMockVentasPorProducto(): VentaProducto[] {
   ];
 }
 
-/**
- * Obtiene niveles de tanques
- * Usa el endpoint /api/Tanques/GetAllTanques (API Externa - Caldenon)
- */
-export async function fetchNivelesTanques(
-  empresaId?: number
-): Promise<NivelTanque[]> {
-  // La variable de entorno ya incluye /api, no agregar otro /api
-  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:4000/api";
-  
-  // Obtener token de autenticación
-  const token = localStorage.getItem('token');
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  
-  const params = new URLSearchParams();
-  if (empresaId) params.append("empresaId", empresaId.toString());
 
-  try {
-    const url = params.toString() 
-      ? `${API_URL}/Tanques/GetAllTanques?${params.toString()}`
-      : `${API_URL}/Tanques/GetAllTanques`;
-      
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: headers
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
-    }
 
-    const contentType = response.headers.get("content-type");
-    if (!contentType || !contentType.includes("application/json")) {
-      const text = await response.text();
-      throw new Error(`El backend devolvió ${contentType || 'text/html'} en lugar de JSON. Respuesta: ${text.substring(0, 200)}`);
-    }
-
-    const json = await response.json();
-
-    // Manejar diferentes formatos de respuesta
-    let data: any[] = [];
-    if (Array.isArray(json)) {
-      data = json;
-    } else if (json.ok && Array.isArray(json.data)) {
-      data = json.data;
-    } else if (json.data && Array.isArray(json.data)) {
-      data = json.data;
-    } else {
-      throw new Error(json.error || json.message || "Formato de respuesta inesperado");
-    }
-
-    // El endpoint GetAllTanques debería devolver datos directamente de tanques
-    // Mapear campos posibles del endpoint a la estructura NivelTanque
-    return data.map((item: any, index: number) => {
-      // Mapear campos posibles del endpoint
-      const tanque_id = item.tanque_id || item.id || item.tanqueId || index + 1;
-      const producto_id = item.producto_id || item.productoId || item.id_producto || 0;
-      const nombre_producto = item.nombre_producto || item.producto || item.nombre || item.Nombre || 'Sin nombre';
-      const capacidad = Number(item.capacidad || item.Capacidad || item.capacidad_litros || 50000);
-      const nivel_actual = Number(item.nivel_actual || item.NivelActual || item.cantidad || item.Cantidad || item.litros || item.Litros || 0);
-      const estacion_id = Number(item.estacion_id || item.estacionId || item.id_estacion || item.EstacionId || 0);
-      const nombre_estacion = item.nombre_estacion || item.estacion || item.NombreEstacion || item.Estacion || 'Sin estación';
-      
-      // Calcular porcentaje
-      const porcentaje = capacidad > 0 ? (nivel_actual / capacidad) * 100 : 0;
-      
-      // Calcular valor_stock si hay precio unitario disponible
-      const precioUnitario = item.precio_unitario || item.precioUnitario || item.precio || item.Precio || 0;
-      const importe = item.importe || item.Importe || 0;
-      // Si hay importe pero no precio unitario, calcularlo
-      const precioCalculado = precioUnitario > 0 
-        ? precioUnitario 
-        : (nivel_actual > 0 && importe > 0 ? convertirImporte(Number(importe)) / nivel_actual : 0);
-      const valor_stock = nivel_actual * precioCalculado;
-
-      return {
-        tanque_id,
-        producto_id,
-        nombre_producto,
-        capacidad,
-        nivel_actual,
-        porcentaje,
-        valor_stock,
-        estacion_id,
-        nombre_estacion,
-      };
-    });
-  } catch (error) {
-    console.warn("Error al obtener niveles de tanques:", error);
-    // Retornar datos mock en caso de error para desarrollo
-    return getMockNivelesTanques();
-  }
-}
-
-function getMockNivelesTanques(): NivelTanque[] {
-  return [
-    { tanque_id: 1, producto_id: 1, nombre_producto: "NAFTA SUPER", capacidad: 50000, nivel_actual: 35000, porcentaje: 70, valor_stock: 2800000, estacion_id: 1, nombre_estacion: "Estación Centro" },
-    { tanque_id: 2, producto_id: 2, nombre_producto: "NAFTA PREMIUM", capacidad: 30000, nivel_actual: 8000, porcentaje: 26.7, valor_stock: 720000, estacion_id: 1, nombre_estacion: "Estación Centro" },
-    { tanque_id: 3, producto_id: 3, nombre_producto: "DIESEL", capacidad: 80000, nivel_actual: 60000, porcentaje: 75, valor_stock: 4800000, estacion_id: 1, nombre_estacion: "Estación Centro" },
-    { tanque_id: 4, producto_id: 1, nombre_producto: "NAFTA SUPER", capacidad: 50000, nivel_actual: 5000, porcentaje: 10, valor_stock: 400000, estacion_id: 2, nombre_estacion: "Estación Norte" },
-  ];
-}
 
 /**
  * Obtiene saldos de cuentas corrientes, facturas y remitos pendientes
@@ -894,35 +780,23 @@ export async function fetchStockValorizado(): Promise<StockValorizado[]> {
   ];
   
   try {
-    // Obtener datos de niveles de tanques y ventas para calcular stock
+    // Obtener datos de niveles de tanques desde el nuevo endpoint
     const niveles = await fetchNivelesTanques();
-    const ventas = await fetchVentasPorProducto();
-    
     const stockMap = new Map<string, StockValorizado>();
-    
     // Procesar niveles de tanques (líquidos en playa)
-    niveles.forEach(nivel => {
+    niveles.forEach((nivel: NivelTanque) => {
       const esLiquido = productosLiquidos.some(p => 
-        nivel.nombre_producto.toUpperCase().includes(p.toUpperCase())
+        nivel.producto.toUpperCase().includes(p.toUpperCase())
       );
-      
-      // Buscar precio/costo en ventas
-      const venta = ventas.find(v => 
-        v.nombre.toUpperCase() === nivel.nombre_producto.toUpperCase()
-      );
-      
-      const costoNeto = venta && venta.litros > 0 
-        ? (venta.importe / venta.litros) * 0.7 // Aproximación: 70% del precio de venta es costo
-        : 50; // Costo por defecto
-      
-      const impuestoInterno = esLiquido ? costoNeto * 0.1 : 0; // 10% impuesto interno aproximado
+      // Costo neto: valor fijo o lógica adicional si tienes precio
+      const costoNeto = 50; // Puedes ajustar según tu lógica
+      const impuestoInterno = esLiquido ? costoNeto * 0.1 : 0;
       const costoTotal = esLiquido ? costoNeto + impuestoInterno : costoNeto;
       const valorStock = nivel.nivel_actual * costoTotal;
-      
-      const key = `${nivel.nombre_producto}_Playa`;
+      const key = `${nivel.producto}_Playa`;
       stockMap.set(key, {
         categoria: esLiquido ? "Líquidos" : "Otros",
-        producto: nivel.nombre_producto,
+        producto: nivel.producto,
         cantidad: nivel.nivel_actual,
         costo_neto: costoNeto,
         impuesto_interno: esLiquido ? impuestoInterno : undefined,
@@ -970,7 +844,6 @@ export async function fetchStockValorizado(): Promise<StockValorizado[]> {
     ];
   }
 }
-
 // Interfaces para las 3 grillas de saldos de cuentas corrientes
 export interface SaldoCuentaCorrienteConSaldo {
   cliente_id: number;

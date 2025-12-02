@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { fetchPcMensual, fetchPcResumenMensual } from '../api/pcMensual';
 import { 
-  fetchNivelesTanques, 
+  fetchNivelesTanques,
+  NivelTanque
+} from '../api/tanques';
+import { 
   fetchCuentasACobrar, 
   fetchCuentasAPagar, 
   fetchStockValorizado,
   CuentasAging,
-  StockValorizado,
-  NivelTanque
+  StockValorizado
 } from '../api/reportes';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import NivelesTanquesDashboard from '../components/NivelesTanquesDashboard';
@@ -238,13 +240,7 @@ const Dashboard: React.FC = () => {
     }),
   };
 
-  // Agrupar tanques por estación
-  const tanquesPorEstacion = nivelesTanques.reduce((acc, tanque) => {
-    const estacion = tanque.nombre_estacion;
-    if (!acc[estacion]) acc[estacion] = [];
-    acc[estacion].push(tanque);
-    return acc;
-  }, {} as Record<string, NivelTanque[]>);
+  // Ya no agrupamos por estación, pasamos el array directo
 
   // Agrupar stock por ubicación
   const stockPorUbicacion = stockValorizado.reduce((acc, item) => {
@@ -311,16 +307,16 @@ const Dashboard: React.FC = () => {
         </div>
 
         {activeTab === 'inicio' ? (
-          <TabInicio
-            proyectadosPorCategoria={proyectadosPorCategoria}
-            tanquesPorEstacion={tanquesPorEstacion}
-            cuentasACobrar={cuentasACobrar}
-            cuentasAPagar={cuentasAPagar}
-            stockPorUbicacion={stockPorUbicacion}
-            fechaMesInicio={fechaMesInicio}
-            setFechaMesInicio={setFechaMesInicio}
-            fetchInicioData={fetchInicioData}
-          />
+            <TabInicio
+              proyectadosPorCategoria={proyectadosPorCategoria}
+              nivelesTanques={nivelesTanques}
+              cuentasACobrar={cuentasACobrar}
+              cuentasAPagar={cuentasAPagar}
+              stockPorUbicacion={stockPorUbicacion}
+              fechaMesInicio={fechaMesInicio}
+              setFechaMesInicio={setFechaMesInicio}
+              fetchInicioData={fetchInicioData}
+            />
         ) : (
           <TabConsumos
             grupos={grupos}
@@ -345,7 +341,7 @@ interface TabInicioProps {
     complementos: Proyectado[];
     shop: Proyectado[];
   };
-  tanquesPorEstacion: Record<string, NivelTanque[]>;
+  nivelesTanques: NivelTanque[];
   cuentasACobrar: CuentasAging | null;
   cuentasAPagar: CuentasAging | null;
   stockPorUbicacion: Record<string, number>;
@@ -356,7 +352,7 @@ interface TabInicioProps {
 
 const TabInicio: React.FC<TabInicioProps> = ({
   proyectadosPorCategoria,
-  tanquesPorEstacion,
+  nivelesTanques,
   cuentasACobrar,
   cuentasAPagar,
   stockPorUbicacion,
@@ -488,7 +484,7 @@ const TabInicio: React.FC<TabInicioProps> = ({
       </div>
 
       {/* Sección Niveles de Tanques */}
-      <NivelesTanquesDashboard tanquesPorEstacion={tanquesPorEstacion} />
+      <NivelesTanquesDashboard tanques={nivelesTanques} />
 
       {/* Sección Cuentas a Cobrar, Cuentas a Pagar y Stock */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
