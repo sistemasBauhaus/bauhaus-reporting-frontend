@@ -319,9 +319,11 @@ const VentasDiarias: React.FC = () => {
     <div className="py-6 px-2 md:px-6 min-h-screen bg-gradient-to-br from-white to-blue-50">
       <div className="max-w-full mx-auto">
         <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
-          <h1 className="text-3xl md:text-4xl font-extrabold text-blue-900 text-center">
-            Ventas Diarias
-          </h1>
+          <div className="w-full flex justify-center">
+            <h1 className="text-3xl md:text-4xl font-extrabold text-blue-900 text-center">
+              Ventas Diarias
+            </h1>
+          </div>
          
         </div>
 

@@ -49,8 +49,8 @@ const ReportesView: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-blue-50">
-      {/* Filtro de fecha compartido solo si no es niveles-tanques */}
-      {tipoReporte !== 'niveles-tanques' && (
+      {/* Filtro de fecha compartido solo si no es niveles-tanques ni ventas-producto */}
+      {tipoReporte !== 'niveles-tanques' && tipoReporte !== 'ventas-producto' && (
         <div className="bg-white border-b border-blue-100 shadow-sm sticky top-0 z-10">
           <div className="max-w-7xl mx-auto px-4 md:px-6 py-4">
             <div className="flex flex-wrap gap-4 items-end justify-center">
