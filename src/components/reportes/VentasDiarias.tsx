@@ -1,11 +1,13 @@
+import FacturacionDiariaOtrosTable from './TablasFacturacion/FacturacionDiariaOtrosTable';
+import FacturacionDiariaGncTable from './TablasFacturacion/FacturacionDiariaGncTable';
+import FacturacionDiariaLiquidosTable from './TablasFacturacion/FacturacionDiariaLiquidosTable';
+import FacturacionDiariaShopTable from './TablasFacturacion/FacturacionDiariaShopTable';
+import FacturacionDiariaClienteTable from './TablasFacturacion/FacturacionDiariaClienteTable';
 import React, { useState, useEffect } from 'react';
+import { Tabs, Tab, Box } from '@mui/material';
 import { fetchReporteSubdiario, fetchFacturasVentaAC, RegistroSubdiario, FacturaVenta } from '../../api/reportes';
 
-interface VentasDiariasProps {
-  fechaInicio?: string;
-  fechaFin?: string;
-  onFechaChange?: (inicio: string, fin: string) => void;
-}
+
 
 interface VentaDiariaAC {
   fecha: string;
@@ -47,274 +49,23 @@ const esAxionCard = (metodoPago?: string): boolean => {
   return metodoUpper.includes('AC') || metodoUpper.includes('AXION') || metodoUpper.includes('CARD');
 };
 
-const VentasDiarias: React.FC<VentasDiariasProps> = ({ 
-  fechaInicio: propFechaInicio, 
-  fechaFin: propFechaFin, 
-  onFechaChange 
-}) => {
+const VentasDiarias: React.FC = () => {
+    useEffect(() => {
+      setLoading(false);
+    }, []);
   const [dataAC, setDataAC] = useState<VentaDiariaAC[]>([]);
   const [dataDirectos, setDataDirectos] = useState<VentaDiariaDirectos[]>([]);
+  // Estado para pestañas
+  const [tabIndex, setTabIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [fechaInicio, setFechaInicio] = useState<string>(propFechaInicio || '');
-  const [fechaFin, setFechaFin] = useState<string>(propFechaFin || '');
 
-  useEffect(() => {
-    if (propFechaInicio && propFechaFin) {
-      setFechaInicio(propFechaInicio);
-      setFechaFin(propFechaFin);
-    } else {
-      const today = new Date();
-      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-      const inicio = firstDay.toISOString().split('T')[0];
-      const fin = today.toISOString().split('T')[0];
-      setFechaInicio(inicio);
-      setFechaFin(fin);
-      if (onFechaChange) {
-        onFechaChange(inicio, fin);
-      }
-    }
-  }, [propFechaInicio, propFechaFin, onFechaChange]);
 
-  useEffect(() => {
-    if (fechaInicio && fechaFin) {
-      fetchData();
-    }
-  }, [fechaInicio, fechaFin]);
 
-  // Función para debug: obtener y mostrar facturas en consola
-  const debugFacturasVenta = async () => {
-    try {
-      const API_URL = process.env.REACT_APP_API_URL || "http://localhost:4000/api";
-      const token = localStorage.getItem('token');
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      
-      // Convertir fechas al formato YYYYMMDD requerido por GetFacturasVenta
-      // Según la documentación: "en formato YYYYMMDD"
-      const convertirFecha = (fecha: string): string => {
-        // Si ya está en formato YYYYMMDD, retornar tal cual
-        if (/^\d{8}$/.test(fecha)) return fecha;
-        // Si está en formato YYYY-MM-DD, convertir a YYYYMMDD
-        if (/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
-          return fecha.replace(/-/g, '');
-        }
-        // Intentar parsear como Date y convertir
-        const date = new Date(fecha);
-        if (!isNaN(date.getTime())) {
-          const anio = date.getFullYear();
-          const mes = String(date.getMonth() + 1).padStart(2, '0');
-          const dia = String(date.getDate()).padStart(2, '0');
-          return `${anio}${mes}${dia}`;
-        }
-        return fecha;
-      };
-      
-      const desdeFechaFormato = convertirFecha(fechaInicio);
-      const hastaFechaFormato = convertirFecha(fechaFin);
-      
-      const params = new URLSearchParams();
-      params.append("desdeFecha", desdeFechaFormato);
-      params.append("hastaFecha", hastaFechaFormato);
-      
-      console.log('🔍 [DEBUG] Llamando a GetFacturasVenta...');
-      console.log('🔍 [DEBUG] Parámetros:', { desdeFecha: desdeFechaFormato, hastaFecha: hastaFechaFormato });
-      
-      const response = await fetch(`${API_URL}/Facturacion/GetFacturasVenta?${params.toString()}`, {
-        method: 'GET',
-        headers: headers
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Error HTTP: ${response.status} - ${response.statusText}`);
-      }
-      
-      const json = await response.json();
-      
-      console.log('✅ [DEBUG] Respuesta completa de GetFacturasVenta:');
-      console.log(JSON.stringify(json, null, 2));
-      
-      // Mostrar también solo las facturas AC
-      let data: any[] = [];
-      if (Array.isArray(json)) {
-        data = json;
-      } else if (json.ok && Array.isArray(json.data)) {
-        data = json.data;
-      } else if (json.data && Array.isArray(json.data)) {
-        data = json.data;
-      }
-      
-      const facturasAC = data.filter((factura: any) => {
-        const nombreCliente = factura.NombreCliente || factura.nombreCliente || factura.Cliente || factura.cliente || '';
-        return nombreCliente.toUpperCase().trim() === 'AXION CARD';
-      });
-      
-      console.log('🎯 [DEBUG] Facturas con cliente "Axion Card":');
-      console.log(JSON.stringify(facturasAC, null, 2));
-      console.log(`📊 [DEBUG] Total facturas: ${data.length}, Facturas AC: ${facturasAC.length}`);
-      
-      // Mostrar estructura de la primera factura
-      if (data.length > 0) {
-        console.log('📋 [DEBUG] Estructura de la primera factura:');
-        console.log(JSON.stringify(data[0], null, 2));
-      }
-      
-      alert(`✅ Resultado en consola. Total facturas: ${data.length}, Facturas AC: ${facturasAC.length}`);
-    } catch (error) {
-      console.error('❌ [DEBUG] Error al obtener facturas:', error);
-      alert(`❌ Error: ${(error as Error).message}`);
-    }
-  };
 
-  const fetchData = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      // Obtener facturas AC y datos del subdiario en paralelo
-      const [facturasAC, rawData] = await Promise.all([
-        fetchFacturasVentaAC(fechaInicio, fechaFin),
-        fetchReporteSubdiario(fechaInicio, fechaFin)
-      ]);
-      
-      // Crear un mapa de facturas AC por fecha para relacionar con ventas del subdiario
-      // Como el subdiario no tiene número de factura, relacionamos por fecha y productos específicos
-      const facturasACPorFecha = new Map<string, Set<string>>(); // fecha -> Set de productos que son AC
-      
-      // Productos que típicamente se venden con Axion Card (Diesel X10, Quantium Diesel)
-      const productosAC = ['DIESEL X10', 'QUANTIUM DIESEL', 'QUANTUM DIESEL'];
-      
-      facturasAC.forEach((factura: FacturaVenta) => {
-        const fechaFactura = factura.FechaEmision || factura.fechaEmision || '';
-        if (fechaFactura) {
-          const fechaNormalizada = fechaFactura.split('T')[0]; // YYYY-MM-DD
-          if (!facturasACPorFecha.has(fechaNormalizada)) {
-            facturasACPorFecha.set(fechaNormalizada, new Set<string>());
-          }
-          // Marcar que en esta fecha hay facturas AC (para productos específicos)
-          facturasACPorFecha.get(fechaNormalizada)!.add('AC_FECHA');
-        }
-      });
-      
-      // Separar en dos mapas: uno para AC y otro para Directos
-      const ventasPorFechaAC = new Map<string, VentaDiariaAC>();
-      const ventasPorFechaDirectos = new Map<string, VentaDiariaDirectos>();
-      
-      rawData.forEach((item: RegistroSubdiario) => {
-        const fecha = item.fecha.split('T')[0]; // Normalizar fecha a YYYY-MM-DD
-        const producto = item.nombre;
-        const litros = Number(item.litros || 0);
-        const importeNeto = Number(item.importe || 0);
-        
-        // Determinar método de pago:
-        // 1. Si el producto es Diesel X10 o Quantium Diesel Y hay facturas AC en esa fecha -> AC
-        // 2. Si el nombre de caja incluye AC/AXION/CARD -> AC
-        // 3. Si hay número de factura y está en facturas AC -> AC
-        // 4. Sino -> Directos
-        const nombreCaja = (item.nombre_caja || '').toUpperCase();
-        const productoUpper = producto.toUpperCase();
-        const tieneFacturaACEnFecha = facturasACPorFecha.has(fecha);
-        const esProductoAC = productosAC.some(p => productoUpper.includes(p));
-        const numFactura = (item.numero_factura || item.factura_id || '').toString();
-        
-        const esAC = (esProductoAC && tieneFacturaACEnFecha) || 
-                     nombreCaja.includes('AC') || 
-                     nombreCaja.includes('AXION') || 
-                     nombreCaja.includes('CARD') ||
-                     (numFactura && facturasACPorFecha.has(fecha)); // Si hay factura AC en esa fecha y tenemos número
-        
-        if (esAC) {
-          // Procesar para tabla AC
-          if (!ventasPorFechaAC.has(fecha)) {
-            ventasPorFechaAC.set(fecha, {
-              fecha,
-              liquidos: {},
-              otros: {},
-              totalFacturado: 0,
-            });
-          }
-          
-          const ventaDia = ventasPorFechaAC.get(fecha)!;
-          
-          if (esLiquido(producto)) {
-            if (!ventaDia.liquidos[producto]) {
-              ventaDia.liquidos[producto] = { litros: 0, importe: 0 };
-            }
-            ventaDia.liquidos[producto].litros += litros;
-            ventaDia.liquidos[producto].importe += importeNeto;
-            // Valor facturado = Neto + impuesto interno (21%)
-            ventaDia.totalFacturado += importeNeto * 1.21;
-          } else {
-            if (!ventaDia.otros[producto]) {
-              ventaDia.otros[producto] = { litros: 0, importe: 0 };
-            }
-            ventaDia.otros[producto].litros += litros;
-            ventaDia.otros[producto].importe += importeNeto;
-            ventaDia.totalFacturado += importeNeto;
-          }
-        } else {
-          // Procesar para tabla Directos
-          if (!ventasPorFechaDirectos.has(fecha)) {
-            ventasPorFechaDirectos.set(fecha, {
-              fecha,
-              liquidos: {},
-              otros: {},
-              totalFacturado: 0,
-            });
-          }
-          
-          const ventaDia = ventasPorFechaDirectos.get(fecha)!;
-          
-          if (esLiquido(producto)) {
-            if (!ventaDia.liquidos[producto]) {
-              ventaDia.liquidos[producto] = { litros: 0, importe: 0 };
-            }
-            ventaDia.liquidos[producto].litros += litros;
-            ventaDia.liquidos[producto].importe += importeNeto;
-            // Valor facturado = Neto + impuesto interno (21%)
-            ventaDia.totalFacturado += importeNeto * 1.21;
-          } else {
-            if (!ventaDia.otros[producto]) {
-              ventaDia.otros[producto] = { litros: 0, importe: 0 };
-            }
-            ventaDia.otros[producto].litros += litros;
-            ventaDia.otros[producto].importe += importeNeto;
-            ventaDia.totalFacturado += importeNeto;
-          }
-        }
-      });
-      
-      // Convertir a arrays y ordenar por fecha
-      const ventasACArray = Array.from(ventasPorFechaAC.values()).sort((a, b) => 
-        a.fecha.localeCompare(b.fecha)
-      );
-      const ventasDirectosArray = Array.from(ventasPorFechaDirectos.values()).sort((a, b) => 
-        a.fecha.localeCompare(b.fecha)
-      );
-      
-      // Si no hay datos, usar datos mock
-      if (ventasACArray.length === 0 && ventasDirectosArray.length === 0) {
-        const { mockAC, mockDirectos, razon } = getMockData();
-        setDataAC(mockAC);
-        setDataDirectos(mockDirectos);
-        setError(`⚠️ ${razon}`);
-      } else {
-        setDataAC(ventasACArray);
-        setDataDirectos(ventasDirectosArray);
-        setError(null);
-      }
-    } catch (err) {
-      // En caso de error, también mostrar datos mock
-      const { mockAC, mockDirectos, razon } = getMockData();
-      setDataAC(mockAC);
-      setDataDirectos(mockDirectos);
-      setError(`⚠️ Error al cargar datos: ${(err as Error).message}. ${razon}`);
-    }
-    setLoading(false);
-  };
+
+
+
 
   // Función para generar datos mock
   const getMockData = () => {
@@ -571,13 +322,7 @@ const VentasDiarias: React.FC<VentasDiariasProps> = ({
           <h1 className="text-3xl md:text-4xl font-extrabold text-blue-900 text-center">
             Ventas Diarias
           </h1>
-          <button
-            onClick={debugFacturasVenta}
-            className="bg-green-600 hover:bg-green-700 transition text-white px-5 py-2 rounded font-semibold shadow text-base whitespace-nowrap"
-            title="Debug: Ver respuesta de GetFacturasVenta en consola"
-          >
-             Debug Facturas
-          </button>
+         
         </div>
 
         {/* Mensaje de advertencia si hay datos mock */}
@@ -587,46 +332,40 @@ const VentasDiarias: React.FC<VentasDiariasProps> = ({
           </div>
         )}
 
-        {/* Filtros de fecha */}
-        {!propFechaInicio && (
-          <div className="flex flex-wrap gap-4 mb-6 justify-center bg-white border border-blue-100 rounded-xl p-4 shadow-sm">
-            <div>
-              <label className="block text-blue-900 font-semibold mb-1">Fecha Inicio</label>
-              <input
-                type="date"
-                value={fechaInicio}
-                onChange={e => setFechaInicio(e.target.value)}
-                className="border border-blue-200 rounded px-3 py-2 text-blue-900 text-base focus:outline-none focus:ring-2 focus:ring-blue-300"
-              />
-            </div>
-            <div>
-              <label className="block text-blue-900 font-semibold mb-1">Fecha Fin</label>
-              <input
-                type="date"
-                value={fechaFin}
-                onChange={e => setFechaFin(e.target.value)}
-                className="border border-blue-200 rounded px-3 py-2 text-blue-900 text-base focus:outline-none focus:ring-2 focus:ring-blue-300"
-              />
-            </div>
-            <div className="flex gap-2 mt-6 md:mt-8">
-              <button
-                onClick={fetchData}
-                className="bg-blue-700 hover:bg-blue-800 transition text-white px-5 py-2 rounded font-semibold shadow text-base"
-              >
-                Buscar
-              </button>
-              <button
-                onClick={debugFacturasVenta}
-                className="bg-green-600 hover:bg-green-700 transition text-white px-5 py-2 rounded font-semibold shadow text-base"
-                title="Debug: Ver respuesta de GetFacturasVenta en consola"
-              >
-                🔍 Debug Facturas
-              </button>
-            </div>
-          </div>
-        )}
 
-        {/* Tabla AC */}
+
+
+        {/* Tabs para mostrar solo una tabla a la vez */}
+        <Box sx={{ width: '100%', bgcolor: 'background.paper', mb: 4 }}>
+          <Tabs
+            value={tabIndex}
+            onChange={(e, v) => setTabIndex(v)}
+            centered
+            textColor="primary"
+            indicatorColor="primary"
+            sx={{
+              minHeight: 56,
+              '.MuiTabs-indicator': {
+                height: 5,
+                borderRadius: 2,
+                backgroundColor: '#1976d2',
+              },
+            }}
+          >
+            <Tab label="Líquidos" sx={{ fontWeight: 'bold', fontSize: 14, minHeight: 56, py: 2 }} />
+            <Tab label="GNC" sx={{ fontWeight: 'bold', fontSize: 14, minHeight: 56, py: 2 }} />
+            <Tab label="Otros" sx={{ fontWeight: 'bold', fontSize: 14, minHeight: 56, py: 2 }} />
+            <Tab label="Shop" sx={{ fontWeight: 'bold', fontSize: 14, minHeight: 56, py: 2 }} />
+            <Tab label="Cliente" sx={{ fontWeight: 'bold', fontSize: 14, minHeight: 56, py: 2 }} />
+          </Tabs>
+        </Box>
+        {tabIndex === 0 && <FacturacionDiariaLiquidosTable />}
+        {tabIndex === 1 && <FacturacionDiariaGncTable />}
+        {tabIndex === 2 && <FacturacionDiariaOtrosTable />}
+        {tabIndex === 3 && <FacturacionDiariaShopTable />}
+        {tabIndex === 4 && <FacturacionDiariaClienteTable />}
+
+        {/* Tabla AC 
         {renderTabla(
           'Ventas con Axion Card (AC)',
           dataAC,
@@ -634,8 +373,9 @@ const VentasDiarias: React.FC<VentasDiariasProps> = ({
           datosAC.productosOtrosArray,
           datosAC.totales
         )}
+          */}
 
-        {/* Tabla Directos */}
+        {/* Tabla Directos 
         {renderTabla(
           'Ventas Directas',
           dataDirectos,
@@ -643,6 +383,7 @@ const VentasDiarias: React.FC<VentasDiariasProps> = ({
           datosDirectos.productosOtrosArray,
           datosDirectos.totales
         )}
+          */}
       </div>
     </div>
   );

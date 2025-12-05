@@ -24,7 +24,7 @@ const ReportesView: React.FC = () => {
   const renderReporte = () => {
     switch (tipoReporte) {
       case 'ventas-producto':
-        return <VentasDiarias fechaInicio={fechaInicio} fechaFin={fechaFin} onFechaChange={(inicio, fin) => { setFechaInicio(inicio); setFechaFin(fin); }} />;
+       return <VentasDiarias />;
       case 'niveles-tanques':
         return <NivelesTanques />;
       case 'saldos-cuentas':

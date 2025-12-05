@@ -29,14 +29,7 @@ function App() {
               </PrivateRoute>
             }
           />
-          <Route
-            path="/reporte-diario"
-            element={
-              <PrivateRoute>
-                <ReporteMensualComponent />
-              </PrivateRoute>
-            }
-          />
+       
           <Route
             path="/usuarios"
             element={

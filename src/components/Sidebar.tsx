@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 
 const PERMISO_LABELS: Record<string, string> = {
   "menu.inicio": "Inicio",
-  "menu.reporte_diario": "Reporte Diario",
+ // "menu.reporte_diario": "Reporte Diario",
   "menu.ventas_diarias": "Ventas Diarias",
   "menu.niveles_tanques": "Niveles de Tanques",
   "menu.saldos_cuentas_corrientes": "Saldos Cuentas Corrientes",
@@ -20,7 +20,7 @@ const menuItems = [
 ];
 
 const reportesItems = [
-    { label: 'Reporte Diario', icon: FiBarChart2, href: '/reporte-diario', permiso: 'menu.reporte_diario' },
+  //  { label: 'Reporte Diario', icon: FiBarChart2, href: '/reporte-diario', permiso: 'menu.reporte_diario' },
   { label: 'Ventas Diarias', icon: FiTrendingUp, href: '/reportes?tipo=ventas-producto', permiso: 'menu.ventas_diarias' },
   { label: 'Niveles de Tanques', icon: FiDroplet, href: '/reportes?tipo=niveles-tanques', permiso: 'menu.niveles_tanques' },
   { label: 'Saldos Cuentas Corrientes', icon: FiDollarSign, href: '/reportes?tipo=saldos-cuentas', permiso: 'menu.saldos_cuentas_corrientes' },
