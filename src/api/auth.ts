@@ -7,9 +7,9 @@ export async function login(email: string, password: string) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
   });
-  console.log('Login response status:', res.status); // <-- Log de status
+  console.log('Login response status:', res.status);
   const data = await res.json();
-  console.log('Login response data:', data); // <-- Log de respuesta
+  console.log('Login response data:', data); 
   if (!res.ok) {
     throw new Error(data.message || 'Error al iniciar sesión');
   }
