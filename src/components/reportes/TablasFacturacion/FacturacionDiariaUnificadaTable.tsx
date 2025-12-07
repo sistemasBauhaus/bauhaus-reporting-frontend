@@ -326,14 +326,14 @@ const FacturacionDiariaUnificadaTable: React.FC = () => {
                   <TableCell align="center" sx={{ ...baseHeaderStyle, ...liquidosHeader, background: '#2196f3', borderRight: '2px solid #1565c0' }}>AC</TableCell>
                   {/* DIESEL X10 */}
                   <TableCell align="center" sx={{ ...baseHeaderStyle, ...liquidosHeader, background: '#2196f3', borderRight: '1px solid #90caf9' }}>Liviano Regular</TableCell>
-                  <TableCell align="center" sx={{ ...baseHeaderStyle, ...liquidosHeader, background: '#2196f3', borderRight: '1px solid #90caf9' }}>Liviano AC</TableCell>
+                  <TableCell align="center" sx={{ ...baseHeaderStyle, ...liquidosHeader, background: '#2196f3', borderRight: '1px solid #90caf9' }}>AC</TableCell>
                   <TableCell align="center" sx={{ ...baseHeaderStyle, ...liquidosHeader, background: '#2196f3', borderRight: '1px solid #90caf9' }}>Pesado Regular</TableCell>
-                  <TableCell align="center" sx={{ ...baseHeaderStyle, ...liquidosHeader, background: '#2196f3', borderRight: '2px solid #1565c0' }}>Pesado AC</TableCell>
+                  <TableCell align="center" sx={{ ...baseHeaderStyle, ...liquidosHeader, background: '#2196f3', borderRight: '2px solid #1565c0' }}>AC</TableCell>
                   {/* QUANTIUM DIESEL X10 */}
                   <TableCell align="center" sx={{ ...baseHeaderStyle, ...liquidosHeader, background: '#2196f3', borderRight: '1px solid #bbdefb' }}>Liviano Regular</TableCell>
-                  <TableCell align="center" sx={{ ...baseHeaderStyle, ...liquidosHeader, background: '#2196f3', borderRight: '1px solid #bbdefb' }}>Liviano AC</TableCell>
+                  <TableCell align="center" sx={{ ...baseHeaderStyle, ...liquidosHeader, background: '#2196f3', borderRight: '1px solid #bbdefb' }}>AC</TableCell>
                   <TableCell align="center" sx={{ ...baseHeaderStyle, ...liquidosHeader, background: '#2196f3', borderRight: '1px solid #bbdefb' }}>Pesado Regular</TableCell>
-                  <TableCell align="center" sx={{ ...baseHeaderStyle, ...liquidosHeader, background: '#2196f3', borderRight: '2px solid #1565c0' }}>Pesado AC</TableCell>
+                  <TableCell align="center" sx={{ ...baseHeaderStyle, ...liquidosHeader, background: '#2196f3', borderRight: '2px solid #1565c0' }}>AC</TableCell>
                   {/* GNC HEADERS - mismo color que las celdas */}
                   <TableCell align="center" sx={{ ...baseHeaderStyle, ...gncHeader, borderLeft: '4px solid #1565c0', borderRight: '1px solid #bbdefb' }}>Livianos</TableCell>
                   <TableCell align="center" sx={{ ...baseHeaderStyle, ...gncHeader, borderRight: '1px solid #bbdefb' }}>Alto Caudal</TableCell>
