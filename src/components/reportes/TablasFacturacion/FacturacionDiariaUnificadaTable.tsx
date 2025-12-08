@@ -150,7 +150,7 @@ const FacturacionDiariaUnificadaTable: React.FC = () => {
     <Paper elevation={3} sx={{ padding: 3, marginBottom: 4 }}>
       <h1 className="text-3xl md:text-4xl font-extrabold text-blue-900 mb-8 text-center">Ventas Diarias</h1>
       {loading ? (
-  <div style={{ textAlign: 'center', fontSize: 22, color: '#1976d2', fontWeight: 700, margin: '40px 0' }}>
+  <div style={{ textAlign: 'center', fontSize: 16, color: '#1976d2', fontWeight: 700, margin: '40px 0' }}>
     Cargando datos...
   </div>
 ) : (
@@ -159,9 +159,12 @@ const FacturacionDiariaUnificadaTable: React.FC = () => {
       <div style={{ display: 'flex', gap: 24, marginBottom: 32, justifyContent: 'center', flexWrap: 'wrap' }}>
         {(() => {
           const isCurrentMonth = (dateStr: string) => {
-            const d = new Date(dateStr);
+            if (!dateStr) return false;
+            const [year, month] = dateStr.split("T")[0].split("-");
             const now = new Date();
-            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+            const currentYear = String(now.getFullYear());
+            const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
+            return year === currentYear && month === currentMonth;
           };
           type Row = { fecha: string; [key: string]: any };
           const rowMap: { [fecha: string]: Row } = {};
