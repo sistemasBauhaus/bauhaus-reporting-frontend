@@ -14,13 +14,20 @@ import {
   Typography, TablePagination
 } from '@mui/material';
 
-// Helper para formatear fecha DD-MM
+// Helper para formatear fecha DD-MM (sin shift de timezone)
 const formatDate = (dateStr: string) => {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${day}-${month}`;
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("T")[0].split("-");
+  return `${d}-${m}`;
+};
+
+
+// Truncar a 2 decimales sin redondear y formatear con . y ,
+const truncateTo2Decimals = (value: number) => {
+  const truncated = Math.trunc(value * 100) / 100;
+  // Formato: separador de miles punto, decimales coma
+  return truncated
+    .toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
 // Tipo de fila unificada
@@ -123,7 +130,21 @@ const FacturacionDiariaUnificadaTable: React.FC = () => {
     fetchLiquidosGncOtrosShop();
   }, []);
 
-  // ...existing code...
+  // Helper para obtener todas las fechas del mes actual en formato YYYY-MM-DD y también DD-MM para mostrar
+  function getAllDatesOfCurrentMonth() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const dates: {iso: string, display: string}[] = [];
+    for (let day = 1; day <= daysInMonth; day++) {
+      const d = new Date(year, month, day);
+      const iso = d.toISOString().slice(0, 10);
+      const display = `${String(day).padStart(2, '0')}-${String(month + 1).padStart(2, '0')}`;
+      dates.push({ iso, display });
+    }
+    return dates;
+  }
 
   return (
     <Paper elevation={3} sx={{ padding: 3, marginBottom: 4 }}>
@@ -277,27 +298,24 @@ const FacturacionDiariaUnificadaTable: React.FC = () => {
           return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
         };
         type Row = { fecha: string; [key: string]: any };
+        // Generar todas las fechas del mes actual
+        const allDates = getAllDatesOfCurrentMonth();
+        // Unificar datos por fecha SOLO para días con datos y del mes en curso
         const rowMap: { [fecha: string]: Row } = {};
-        liquidos.filter((row: any) => isCurrentMonth(row.fecha)).forEach((row: any) => {
-          const key = formatDate(row.fecha);
+        const addRow = (row: any) => {
+          const [year, month, day] = row.fecha.split("T")[0].split("-").map(Number);
+          const now = new Date();
+          // Filtrar por mes actual sin usar Date() para el día
+          if (month - 1 !== now.getMonth() || year !== now.getFullYear()) return;
+          const key = `${String(day).padStart(2, "0")}-${String(month).padStart(2, "0")}`;
           if (!rowMap[key]) rowMap[key] = { fecha: key };
           Object.assign(rowMap[key], row);
-        });
-        gnc.filter((row: any) => isCurrentMonth(row.fecha)).forEach((row: any) => {
-          const key = formatDate(row.fecha);
-          if (!rowMap[key]) rowMap[key] = { fecha: key };
-          Object.assign(rowMap[key], row);
-        });
-        shop.filter((row: any) => isCurrentMonth(row.fecha)).forEach((row: any) => {
-          const key = formatDate(row.fecha);
-          if (!rowMap[key]) rowMap[key] = { fecha: key };
-          Object.assign(rowMap[key], row);
-        });
-        otros.filter((row: any) => isCurrentMonth(row.fecha)).forEach((row: any) => {
-          const key = formatDate(row.fecha);
-          if (!rowMap[key]) rowMap[key] = { fecha: key };
-          Object.assign(rowMap[key], row);
-        });
+        };
+        liquidos.forEach(addRow);
+        gnc.forEach(addRow);
+        shop.forEach(addRow);
+        otros.forEach(addRow);
+        // Ordenar por fecha descendente
         const rows: Row[] = Object.values(rowMap).sort((a, b) => b.fecha.localeCompare(a.fecha));
         const paginatedRows: Row[] = rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
         return (
@@ -326,14 +344,14 @@ const FacturacionDiariaUnificadaTable: React.FC = () => {
                   <TableCell align="center" sx={{ ...baseHeaderStyle, ...liquidosHeader, background: '#2196f3', borderRight: '2px solid #1565c0' }}>AC</TableCell>
                   {/* DIESEL X10 */}
                   <TableCell align="center" sx={{ ...baseHeaderStyle, ...liquidosHeader, background: '#2196f3', borderRight: '1px solid #90caf9' }}>Liviano Regular</TableCell>
-                  <TableCell align="center" sx={{ ...baseHeaderStyle, ...liquidosHeader, background: '#2196f3', borderRight: '1px solid #90caf9' }}>AC</TableCell>
                   <TableCell align="center" sx={{ ...baseHeaderStyle, ...liquidosHeader, background: '#2196f3', borderRight: '1px solid #90caf9' }}>Pesado Regular</TableCell>
-                  <TableCell align="center" sx={{ ...baseHeaderStyle, ...liquidosHeader, background: '#2196f3', borderRight: '2px solid #1565c0' }}>AC</TableCell>
+                  <TableCell align="center" sx={{ ...baseHeaderStyle, ...liquidosHeader, background: '#2196f3', borderRight: '1px solid #90caf9' }}>Pesado AC</TableCell>
+                  <TableCell align="center" sx={{ ...baseHeaderStyle, ...liquidosHeader, background: '#2196f3', borderRight: '2px solid #1565c0' }}>Liviano AC</TableCell>
                   {/* QUANTIUM DIESEL X10 */}
                   <TableCell align="center" sx={{ ...baseHeaderStyle, ...liquidosHeader, background: '#2196f3', borderRight: '1px solid #bbdefb' }}>Liviano Regular</TableCell>
-                  <TableCell align="center" sx={{ ...baseHeaderStyle, ...liquidosHeader, background: '#2196f3', borderRight: '1px solid #bbdefb' }}>AC</TableCell>
                   <TableCell align="center" sx={{ ...baseHeaderStyle, ...liquidosHeader, background: '#2196f3', borderRight: '1px solid #bbdefb' }}>Pesado Regular</TableCell>
-                  <TableCell align="center" sx={{ ...baseHeaderStyle, ...liquidosHeader, background: '#2196f3', borderRight: '2px solid #1565c0' }}>AC</TableCell>
+                  <TableCell align="center" sx={{ ...baseHeaderStyle, ...liquidosHeader, background: '#2196f3', borderRight: '1px solid #bbdefb' }}>Pesado AC</TableCell>
+                  <TableCell align="center" sx={{ ...baseHeaderStyle, ...liquidosHeader, background: '#2196f3', borderRight: '2px solid #1565c0' }}>Liviano AC</TableCell>
                   {/* GNC HEADERS - mismo color que las celdas */}
                   <TableCell align="center" sx={{ ...baseHeaderStyle, ...gncHeader, borderLeft: '4px solid #1565c0', borderRight: '1px solid #bbdefb' }}>Livianos</TableCell>
                   <TableCell align="center" sx={{ ...baseHeaderStyle, ...gncHeader, borderRight: '1px solid #bbdefb' }}>Alto Caudal</TableCell>
@@ -360,68 +378,68 @@ const FacturacionDiariaUnificadaTable: React.FC = () => {
                   rows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row, idx) => (
                     <TableRow key={idx + page * rowsPerPage}>
                       <TableCell sx={{ borderRight: '2px solid #1565c0' }}>{formatDate(row.fecha)}</TableCell>
-                      <TableCell sx={{ ...baseCellStyle, ...liquidosColor }}>{row.super?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) ?? ''}</TableCell>
-                      <TableCell sx={{ ...baseCellStyle, ...liquidosColor }}>{row.s_ac?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) ?? ''}</TableCell>
-                      <TableCell sx={{ ...baseCellStyle, ...liquidosColor }}>{row.quantium_nafta?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) ?? ''}</TableCell>
-                      <TableCell sx={{ ...baseCellStyle, ...liquidosColor }}>{row.qn_ac?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) ?? ''}</TableCell>
-                      <TableCell sx={{ ...baseCellStyle, ...liquidosColor }}>{row.diesel_x10_liviano?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) ?? ''}</TableCell>
-                      <TableCell sx={{ ...baseCellStyle, ...liquidosColor }}>{row.diesel_x10_liviano_ac?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) ?? ''}</TableCell>
-                      <TableCell sx={{ ...baseCellStyle, ...liquidosColor }}>{row.diesel_x10_pesado?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) ?? ''}</TableCell>
-                      <TableCell sx={{ ...baseCellStyle, ...liquidosColor }}>{row.diesel_x10_pesado_ac?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) ?? ''}</TableCell>
-                      <TableCell sx={{ ...baseCellStyle, ...liquidosColor }}>{row.quantium_diesel_x10_liviano?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) ?? ''}</TableCell>
-                      <TableCell sx={{ ...baseCellStyle, ...liquidosColor }}>{row.quantium_diesel_x10_liviano_ac?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) ?? ''}</TableCell>
-                      <TableCell sx={{ ...baseCellStyle, ...liquidosColor }}>{row.quantium_diesel_x10_pesado?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) ?? ''}</TableCell>
-                      <TableCell sx={{ ...baseCellStyle, ...liquidosColor }}>{row.quantium_diesel_x10_pesado_ac?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) ?? ''}</TableCell>
-                      <TableCell sx={{ ...baseCellStyle, ...liquidosColor }}>{row.total_dinero_dia?.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 }) ?? ''}</TableCell>
+                      <TableCell sx={{ ...baseCellStyle, ...liquidosColor }}>{truncateTo2Decimals(Number(row.super ?? 0))}</TableCell>
+                      <TableCell sx={{ ...baseCellStyle, ...liquidosColor }}>{truncateTo2Decimals(Number(row.s_ac ?? 0))}</TableCell>
+                      <TableCell sx={{ ...baseCellStyle, ...liquidosColor }}>{truncateTo2Decimals(Number(row.quantium_nafta ?? 0))}</TableCell>
+                      <TableCell sx={{ ...baseCellStyle, ...liquidosColor }}>{truncateTo2Decimals(Number(row.qn_ac ?? 0))}</TableCell>
+                      <TableCell sx={{ ...baseCellStyle, ...liquidosColor }}>{truncateTo2Decimals(Number(row.diesel_x10_liviano ?? 0))}</TableCell>
+                      <TableCell sx={{ ...baseCellStyle, ...liquidosColor }}>{truncateTo2Decimals(Number(row.diesel_x10_pesado ?? 0))}</TableCell>
+                      <TableCell sx={{ ...baseCellStyle, ...liquidosColor }}>{truncateTo2Decimals(Number(row.diesel_x10_pesado_ac ?? 0))}</TableCell>
+                      <TableCell sx={{ ...baseCellStyle, ...liquidosColor }}>{truncateTo2Decimals(Number(row.diesel_x10_liviano_ac ?? 0))}</TableCell>
+                      <TableCell sx={{ ...baseCellStyle, ...liquidosColor }}>{truncateTo2Decimals(Number(row.quantium_diesel_x10_liviano ?? 0))}</TableCell>
+                      <TableCell sx={{ ...baseCellStyle, ...liquidosColor }}>{truncateTo2Decimals(Number(row.quantium_diesel_x10_pesado ?? 0))}</TableCell>
+                      <TableCell sx={{ ...baseCellStyle, ...liquidosColor }}>{truncateTo2Decimals(Number(row.quantium_diesel_x10_pesado_ac ?? 0))}</TableCell>
+                      <TableCell sx={{ ...baseCellStyle, ...liquidosColor }}>{truncateTo2Decimals(Number(row.quantium_diesel_x10_liviano_ac ?? 0))}</TableCell>
+                      <TableCell sx={{ ...baseCellStyle, ...liquidosColor }}>{truncateTo2Decimals(Number(row.total_dinero_dia ?? 0))}</TableCell>
                       {/* GNC */}
-                      <TableCell sx={gncCellStyle}>{row.gnc?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) ?? ''}</TableCell>
-                      <TableCell sx={gncCellStyle}>{row.gnc_ac?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) ?? ''}</TableCell>
-                      <TableCell sx={gncCellStyle}>{row.total_gnc_dinero?.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 }) ?? ''}</TableCell>
+                      <TableCell sx={gncCellStyle}>{truncateTo2Decimals(Number(row.gnc ?? 0))}</TableCell>
+                      <TableCell sx={gncCellStyle}>{truncateTo2Decimals(Number(row.gnc_ac ?? 0))}</TableCell>
+                      <TableCell sx={gncCellStyle}>{truncateTo2Decimals(Number(row.total_gnc_dinero ?? 0))}</TableCell>
                       {/* Complementos */}
-                      <TableCell sx={complementosCellStyle}>{row.eco_blue?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) ?? ''}</TableCell>
-                      <TableCell sx={complementosCellStyle}>{row.lubricantes?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) ?? ''}</TableCell>
-                      <TableCell sx={complementosCellStyle}>{row.otros?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) ?? ''}</TableCell>
-                      <TableCell sx={complementosCellStyle}>{row.total_otros_dinero?.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 }) ?? ''}</TableCell>
+                      <TableCell sx={complementosCellStyle}>{truncateTo2Decimals(Number(row.eco_blue ?? 0))}</TableCell>
+                      <TableCell sx={complementosCellStyle}>{truncateTo2Decimals(Number(row.lubricantes ?? 0))}</TableCell>
+                      <TableCell sx={complementosCellStyle}>{truncateTo2Decimals(Number(row.otros ?? 0))}</TableCell>
+                      <TableCell sx={complementosCellStyle}>{truncateTo2Decimals(Number(row.total_otros_dinero ?? 0))}</TableCell>
                       {/* Spot */}
-                      <TableCell sx={spotCellStyle}>{row.total_liquidos?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) ?? ''}</TableCell>
-                      <TableCell sx={spotCellStyle}>{row.total_comidas?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) ?? ''}</TableCell>
-                      <TableCell sx={spotCellStyle}>{row.total_kiosco?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) ?? ''}</TableCell>
-                      <TableCell sx={spotCellStyle}>{row.cortesias_discriminado?.toLocaleString('es-AR', { minimumFractionDigits: 2 }) ?? ''}</TableCell>
-                      <TableCell sx={spotCellStyle}>{row.total_venta_dia?.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 }) ?? ''}</TableCell>
+                      <TableCell sx={spotCellStyle}>{truncateTo2Decimals(Number(row.total_liquidos ?? 0))}</TableCell>
+                      <TableCell sx={spotCellStyle}>{truncateTo2Decimals(Number(row.total_comidas ?? 0))}</TableCell>
+                      <TableCell sx={spotCellStyle}>{truncateTo2Decimals(Number(row.total_kiosco ?? 0))}</TableCell>
+                      <TableCell sx={spotCellStyle}>{truncateTo2Decimals(Number(row.cortesias_discriminado ?? 0))}</TableCell>
+                      <TableCell sx={spotCellStyle}>{truncateTo2Decimals(Number(row.total_venta_dia ?? 0))}</TableCell>
                     </TableRow>
                   ))
                 )}
                 {/* Fila de totales */}
                 <TableRow sx={{ background: '#1976d2', borderTop: '4px solid #1565c0', height: 40 }}>
                   <TableCell sx={{ fontWeight: 'bold', color: '#fff', textAlign: 'center', background: '#1976d2', minWidth: 70, fontSize: 16, borderTop: '4px solid #1565c0', borderRight: '2px solid #1565c0', letterSpacing: 1 }}>Totales</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + (r.super ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + (r.s_ac ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + (r.quantium_nafta ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + (r.qn_ac ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + (r.diesel_x10_liviano ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + (r.diesel_x10_liviano_ac ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + (r.diesel_x10_pesado ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + (r.diesel_x10_pesado_ac ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + (r.quantium_diesel_x10_liviano ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + (r.quantium_diesel_x10_liviano_ac ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + (r.quantium_diesel_x10_pesado ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + (r.quantium_diesel_x10_pesado_ac ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#fff', background: '#1976d2', textAlign: 'center', fontSize: 16, borderRight: '2px solid #1976d2', letterSpacing: 1 }}>{rows.reduce((acc, r) => acc + (r.total_dinero_dia ?? 0), 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.super ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.s_ac ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.quantium_nafta ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.qn_ac ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.diesel_x10_liviano ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.diesel_x10_liviano_ac ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.diesel_x10_pesado ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.diesel_x10_pesado_ac ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.quantium_diesel_x10_liviano ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.quantium_diesel_x10_liviano_ac ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.quantium_diesel_x10_pesado ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.quantium_diesel_x10_pesado_ac ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#fff', background: '#1976d2', textAlign: 'center', fontSize: 16, borderRight: '2px solid #1976d2', letterSpacing: 1 }}>{rows.reduce((acc, r) => acc + Number(r.total_dinero_dia ?? 0), 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}</TableCell>
                   {/* Totales GNC */}
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderLeft: '4px solid #1565c0', borderRight: '1px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + (r.gnc ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '1px solid #1565c0', borderLeft: '1px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + (r.gnc_ac ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#fff', background: '#1976d2', textAlign: 'center', fontSize: 16, borderRight: '2px solid #1976d2', letterSpacing: 1  }}>{rows.reduce((acc, r) => acc + (r.total_gnc_dinero ?? 0), 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderLeft: '4px solid #1565c0', borderRight: '1px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.gnc ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '1px solid #1565c0', borderLeft: '1px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.gnc_ac ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#fff', background: '#1976d2', textAlign: 'center', fontSize: 16, borderRight: '2px solid #1976d2', letterSpacing: 1  }}>{rows.reduce((acc, r) => acc + Number(r.total_gnc_dinero ?? 0), 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}</TableCell>
                   {/* Totales Complementos */}
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1565c0', background: '#fff', textAlign: 'center', fontSize: 15, borderLeft: '4px solid #0d47a1', borderRight: '1px solid #bbdefb', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + (r.eco_blue ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1565c0', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '1px solid #bbdefb', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + (r.lubricantes ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1565c0', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '1px solid #bbdefb', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + (r.otros ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#fff', background: '#1976d2', textAlign: 'center', fontSize: 16, borderRight: '2px solid #1976d2', letterSpacing: 1 }}>{rows.reduce((acc, r) => acc + (r.total_otros_dinero ?? 0), 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1565c0', background: '#fff', textAlign: 'center', fontSize: 15, borderLeft: '4px solid #0d47a1', borderRight: '1px solid #bbdefb', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.eco_blue ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1565c0', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '1px solid #bbdefb', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.lubricantes ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1565c0', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '1px solid #bbdefb', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.otros ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#fff', background: '#1976d2', textAlign: 'center', fontSize: 16, borderRight: '2px solid #1976d2', letterSpacing: 1 }}>{rows.reduce((acc, r) => acc + Number(r.total_otros_dinero ?? 0), 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}</TableCell>
                   {/* Totales Spot */}
-                  <TableCell sx={{ fontWeight: 'bold', color: '#01579b', background: '#fff', textAlign: 'center', fontSize: 15, borderLeft: '4px solid #0288d1', borderRight: '1px solid #b3e5fc', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + (r.total_liquidos ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#01579b', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '1px solid #b3e5fc', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + (r.total_comidas ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#01579b', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '1px solid #b3e5fc', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + (r.total_kiosco ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#01579b', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '1px solid #b3e5fc', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + (r.cortesias_discriminado ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#fff', background: '#1976d2', textAlign: 'center', fontSize: 16, borderRight: '2px solid #1976d2', letterSpacing: 1 }}>{rows.reduce((acc, r) => acc + (r.total_venta_dia ?? 0), 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#01579b', background: '#fff', textAlign: 'center', fontSize: 15, borderLeft: '4px solid #0288d1', borderRight: '1px solid #b3e5fc', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.total_liquidos ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#01579b', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '1px solid #b3e5fc', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.total_comidas ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#01579b', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '1px solid #b3e5fc', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.total_kiosco ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#01579b', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '1px solid #b3e5fc', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.cortesias_discriminado ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#fff', background: '#1976d2', textAlign: 'center', fontSize: 16, borderRight: '2px solid #1976d2', letterSpacing: 1 }}>{rows.reduce((acc, r) => acc + Number(r.total_venta_dia ?? 0), 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}</TableCell>
                 </TableRow>
               </TableBody>
             </Table>
