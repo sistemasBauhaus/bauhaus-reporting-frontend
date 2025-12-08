@@ -149,6 +149,12 @@ const FacturacionDiariaUnificadaTable: React.FC = () => {
   return (
     <Paper elevation={3} sx={{ padding: 3, marginBottom: 4 }}>
       <h1 className="text-3xl md:text-4xl font-extrabold text-blue-900 mb-8 text-center">Ventas Diarias</h1>
+      {loading ? (
+  <div style={{ textAlign: 'center', fontSize: 22, color: '#1976d2', fontWeight: 700, margin: '40px 0' }}>
+    Cargando datos...
+  </div>
+) : (
+  <>
       {/* Cards resumen - arriba de la tabla */}
       <div style={{ display: 'flex', gap: 24, marginBottom: 32, justifyContent: 'center', flexWrap: 'wrap' }}>
         {(() => {
@@ -247,25 +253,6 @@ const FacturacionDiariaUnificadaTable: React.FC = () => {
                 <div style={{ fontSize: 13, color: '#666', marginBottom: 2 }}>Hasta el día {lastDate}</div>
                 <div style={{ fontSize: 14, color: colorGNC, fontWeight: 700, marginBottom: 8 }}>Proyectado: {proyectadoVentasDia.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}</div>
               </div>
-              {/* Stop */}
-              <div style={{
-                background: '#fff',
-                border: `2px solid ${colorStop}`,
-                boxShadow: '0 1px 6px rgba(0,0,0,0.07)',
-                minWidth: 200,
-                padding: '18px 22px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                borderRadius: 8
-              }}>
-                <div style={{ fontWeight: 700, fontSize: 18, color: colorStop, marginBottom: 6 }}>Stop</div>
-                <div style={{ fontWeight: 700, fontSize: 22, color: colorStop, marginBottom: 2 }}>
-                  {totalStop.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}
-                </div>
-                <div style={{ fontSize: 13, color: '#666', marginBottom: 2 }}>Hasta el día {lastDate}</div>
-                <div style={{ fontSize: 14, color: colorStop, fontWeight: 700, marginBottom: 8 }}>Proyectado: {proyectadoVentasDia.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}</div>
-              </div>
               {/* Complementos */}
               <div style={{
                 background: '#fff',
@@ -284,6 +271,25 @@ const FacturacionDiariaUnificadaTable: React.FC = () => {
                 </div>
                 <div style={{ fontSize: 13, color: '#666', marginBottom: 2 }}>Hasta el día {lastDate}</div>
                 <div style={{ fontSize: 14, color: colorComplementos, fontWeight: 700, marginBottom: 8 }}>Proyectado: {proyectadoVentasDia.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}</div>
+              </div>
+                {/* Stop */}
+              <div style={{
+                background: '#fff',
+                border: `2px solid ${colorStop}`,
+                boxShadow: '0 1px 6px rgba(0,0,0,0.07)',
+                minWidth: 200,
+                padding: '18px 22px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                borderRadius: 8
+              }}>
+                <div style={{ fontWeight: 700, fontSize: 18, color: colorStop, marginBottom: 6 }}>Stop</div>
+                <div style={{ fontWeight: 700, fontSize: 22, color: colorStop, marginBottom: 2 }}>
+                  {totalStop.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}
+                </div>
+                <div style={{ fontSize: 13, color: '#666', marginBottom: 2 }}>Hasta el día {lastDate}</div>
+                <div style={{ fontSize: 14, color: colorStop, fontWeight: 700, marginBottom: 8 }}>Proyectado: {proyectadoVentasDia.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}</div>
               </div>
             </div>
           );
@@ -412,19 +418,19 @@ const FacturacionDiariaUnificadaTable: React.FC = () => {
                 {/* Fila de totales */}
                 <TableRow sx={{ background: '#1976d2', borderTop: '4px solid #1565c0', height: 40 }}>
                   <TableCell sx={{ fontWeight: 'bold', color: '#fff', textAlign: 'center', background: '#1976d2', minWidth: 70, fontSize: 16, borderTop: '4px solid #1565c0', borderRight: '2px solid #1565c0', letterSpacing: 1 }}>Totales</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.super ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.s_ac ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.quantium_nafta ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.qn_ac ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.diesel_x10_liviano ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.diesel_x10_liviano_ac ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.diesel_x10_pesado ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.diesel_x10_pesado_ac ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.quantium_diesel_x10_liviano ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.quantium_diesel_x10_liviano_ac ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.quantium_diesel_x10_pesado ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.quantium_diesel_x10_pesado_ac ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', color: '#fff', background: '#1976d2', textAlign: 'center', fontSize: 16, borderRight: '2px solid #1976d2', letterSpacing: 1 }}>{rows.reduce((acc, r) => acc + Number(r.total_dinero_dia ?? 0), 0).toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{truncateTo2Decimals(rows.reduce((acc, r) => acc + Number(r.super ?? 0), 0))}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{truncateTo2Decimals(rows.reduce((acc, r) => acc + Number(r.s_ac ?? 0), 0))}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{truncateTo2Decimals(rows.reduce((acc, r) => acc + Number(r.quantium_nafta ?? 0), 0))}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{truncateTo2Decimals(rows.reduce((acc, r) => acc + Number(r.qn_ac ?? 0), 0))}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{truncateTo2Decimals(rows.reduce((acc, r) => acc + Number(r.diesel_x10_liviano ?? 0), 0))}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{truncateTo2Decimals(rows.reduce((acc, r) => acc + Number(r.diesel_x10_liviano_ac ?? 0), 0))}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{truncateTo2Decimals(rows.reduce((acc, r) => acc + Number(r.diesel_x10_pesado ?? 0), 0))}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{truncateTo2Decimals(rows.reduce((acc, r) => acc + Number(r.diesel_x10_pesado_ac ?? 0), 0))}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{truncateTo2Decimals(rows.reduce((acc, r) => acc + Number(r.quantium_diesel_x10_liviano ?? 0), 0))}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{truncateTo2Decimals(rows.reduce((acc, r) => acc + Number(r.quantium_diesel_x10_liviano_ac ?? 0), 0))}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{truncateTo2Decimals(rows.reduce((acc, r) => acc + Number(r.quantium_diesel_x10_pesado ?? 0), 0))}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '2px solid #1565c0', borderLeft: '2px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{truncateTo2Decimals(rows.reduce((acc, r) => acc + Number(r.quantium_diesel_x10_pesado_ac ?? 0), 0))}</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', color: '#fff', background: '#1976d2', textAlign: 'center', fontSize: 16, borderRight: '2px solid #1976d2', letterSpacing: 1 }}>{truncateTo2Decimals(rows.reduce((acc, r) => acc + Number(r.total_dinero_dia ?? 0), 0))}</TableCell>
                   {/* Totales GNC */}
                   <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderLeft: '4px solid #1565c0', borderRight: '1px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.gnc ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
                   <TableCell sx={{ fontWeight: 'bold', color: '#1976d2', background: '#fff', textAlign: 'center', fontSize: 15, borderRight: '1px solid #1565c0', borderLeft: '1px solid #1565c0', boxShadow: '0 2px 8px #e0e0e0' }}>{rows.reduce((acc, r) => acc + Number(r.gnc_ac ?? 0), 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</TableCell>
@@ -507,6 +513,8 @@ const FacturacionDiariaUnificadaTable: React.FC = () => {
         </>
         );
       })()}
+      </>
+)}
     </Paper>
   )};
         export default FacturacionDiariaUnificadaTable;
