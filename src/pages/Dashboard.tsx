@@ -1,5 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { fetchPcMensual, fetchPcResumenMensual } from '../api/pcMensual';
+import { fetchFacturacionDiariaLiquidos, fetchFacturacionDiariaGNC, fetchFacturacionDiariaOtros, fetchFacturacionDiariaShop } from '../api/facturacion';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  CartesianGrid
+} from 'recharts';
 import { 
   fetchNivelesTanques,
   fetchTanqueHistorico,
@@ -14,7 +24,7 @@ import {
   CuentasAging,
   StockValorizado
 } from '../api/reportes';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
 import NivelesTanquesDashboard from '../components/NivelesTanquesDashboard';
 
 interface Grupo {
@@ -35,11 +45,7 @@ interface Resumen {
   promedio_precio: number;
 }
 
-interface Proyectado {
-  categoria: string;
-  producto: string;
-  monto: number;
-}
+
 
 // Mapeo de categorías según lo que pide el cliente
 const categoriaMap: Record<string, string> = {
@@ -59,7 +65,20 @@ const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'inicio' | 'consumos'>('inicio');
   
   // Estados para tab Inicio
-  const [proyectados, setProyectados] = useState<Proyectado[]>([]);
+  // Totales y proyectados reales desde facturación diaria
+  // Totales y proyectados unificados como en la tabla
+  const [totalesFacturacion, setTotalesFacturacion] = useState({
+    liquidos: 0,
+    gnc: 0,
+    complementos: 0,
+    stop: 0,
+    proyectadoLiquidos: 0,
+    proyectadoGNC: 0,
+    proyectadoComplementos: 0,
+    proyectadoStop: 0,
+    lastDate: '',
+    diasDelMes: 0,
+  });
   const [nivelesTanques, setNivelesTanques] = useState<NivelTanque[]>([]);
   const [cuentasACobrar, setCuentasACobrar] = useState<CuentasAging | null>(null);
   const [cuentasAPagar, setCuentasAPagar] = useState<CuentasAging | null>(null);
@@ -79,122 +98,80 @@ const Dashboard: React.FC = () => {
   const fetchInicioData = async () => {
     setLoadingInicio(true);
     try {
-      // Calcular proyectados
-      let hoy: Date;
-      let primerDiaMes: Date;
-      let ultimoDiaMes: Date;
-      let diasTranscurridos: number;
-      
-      if (fechaMesInicio) {
-        // Usar el mes seleccionado
-        const [anio, mes] = fechaMesInicio.slice(0, 7).split("-");
-        primerDiaMes = new Date(Number(anio), Number(mes) - 1, 1);
-        ultimoDiaMes = new Date(Number(anio), Number(mes), 0);
-        hoy = new Date(); // Usar hoy para calcular días transcurridos
-        const diaActual = hoy.getDate();
-        const mesActual = hoy.getMonth() + 1;
-        const anioActual = hoy.getFullYear();
-        
-        // Si el mes seleccionado es el mes actual, usar días transcurridos
-        if (Number(mes) === mesActual && Number(anio) === anioActual) {
-          diasTranscurridos = diaActual;
-        } else {
-          // Si es un mes pasado, usar todos los días del mes
-          diasTranscurridos = ultimoDiaMes.getDate();
-        }
-      } else {
-        // Usar mes actual por defecto
-        hoy = new Date();
-        primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-        ultimoDiaMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
-        diasTranscurridos = hoy.getDate();
-      }
-      
-      const diasDelMes = ultimoDiaMes.getDate();
-      const fechaInicio = primerDiaMes.toISOString().split('T')[0];
-      const fechaFin = fechaMesInicio 
-        ? ultimoDiaMes.toISOString().split('T')[0]
-        : hoy.toISOString().split('T')[0];
-      
-      const data = await fetchPcMensual(fechaInicio, fechaFin);
-      
-      // Calcular proyectados: suma ventas / días transcurridos * días del mes
-      const ventasPorProducto = new Map<string, number>();
-      data.forEach(item => {
-        const key = item.producto;
-        const monto = Number(item.total_importe);
-        ventasPorProducto.set(key, (ventasPorProducto.get(key) || 0) + monto);
+      // Obtener datos de facturación diaria para el mes actual
+      const hoy = new Date();
+      const year = hoy.getFullYear();
+      const month = hoy.getMonth();
+      const diasDelMes = new Date(year, month + 1, 0).getDate();
+      const fechaInicio = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+      const fechaFin = `${year}-${String(month + 1).padStart(2, '0')}-${String(diasDelMes).padStart(2, '0')}`;
+
+      const [liquidos, gnc, otros, shop] = await Promise.all([
+        fetchFacturacionDiariaLiquidos(fechaInicio, fechaFin),
+        fetchFacturacionDiariaGNC(fechaInicio, fechaFin),
+        fetchFacturacionDiariaOtros(fechaInicio, fechaFin),
+        fetchFacturacionDiariaShop(fechaInicio, fechaFin)
+      ]);
+
+      // Unificar datos por fecha como en la tabla
+      type Row = { fecha: string; [key: string]: any };
+      const rowMap: { [fecha: string]: Row } = {};
+      const isCurrentMonth = (dateStr: string): boolean => {
+        if (!dateStr) return false;
+        const [yearS, monthS] = dateStr.split("T")[0].split("-");
+        return Number(yearS) === year && Number(monthS) === month + 1;
+      };
+      const addRow = (row: any) => {
+        if (!isCurrentMonth(row.fecha)) return;
+        const [y, m, d] = row.fecha.split("T")[0].split("-");
+        const key = `${d}-${m}`;
+        if (!rowMap[key]) rowMap[key] = { fecha: key };
+        Object.assign(rowMap[key], row);
+      };
+      liquidos.forEach(addRow);
+      gnc.forEach(addRow);
+      otros.forEach(addRow);
+      shop.forEach(addRow);
+      const rows: Row[] = Object.values(rowMap);
+      const fechas = rows.map((r: Row) => r.fecha).sort();
+      const lastDate = fechas.length > 0 ? fechas[fechas.length - 1] : '';
+
+      // Totales y proyectados igual que la tabla
+      const totalLiquidos = rows.reduce((acc: number, r: Row) => acc + (r.total_dinero_dia ?? 0), 0);
+      const totalGNC = rows.reduce((acc: number, r: Row) => acc + (r.total_gnc_dinero ?? 0), 0);
+      const totalComplementos = rows.reduce((acc: number, r: Row) => acc + (r.total_otros_dinero ?? 0), 0);
+      const totalStop = rows.reduce((acc: number, r: Row) => acc + (r.total_venta_dia ?? 0), 0);
+
+      setTotalesFacturacion({
+        liquidos: totalLiquidos,
+        gnc: totalGNC,
+        complementos: totalComplementos,
+        stop: totalStop,
+        proyectadoLiquidos: totalLiquidos * diasDelMes,
+        proyectadoGNC: totalGNC * diasDelMes,
+        proyectadoComplementos: totalComplementos * diasDelMes,
+        proyectadoStop: totalStop * diasDelMes,
+        lastDate,
+        diasDelMes
       });
-      
-      const proyectadosCalculados: Proyectado[] = [];
-      ventasPorProducto.forEach((monto, producto) => {
-        const sumaVentas = monto;
-        // Proyectado = suma de ventas / días del mes transcurrido * cantidad de días del mes
-        const proyectado = diasTranscurridos > 0 
-          ? (sumaVentas / diasTranscurridos) * diasDelMes 
-          : sumaVentas; // Si no hay días transcurridos, usar el monto actual
-        proyectadosCalculados.push({
-          categoria: categoriaMap[producto.toUpperCase()] || 'OTROS',
-          producto,
-          monto: Math.round(proyectado * 100) / 100, // Redondear a 2 decimales
-        });
-      });
-      setProyectados(proyectadosCalculados);
       
       // Cargar niveles de tanques (histórico mensual si hay filtro de mes)
       let niveles: NivelTanque[] = [];
-      if (fechaMesInicio) {
-        // Obtener tanques actuales para saber los IDs
-        const tanquesActuales = await fetchNivelesTanques();
-        console.log('Tanques actuales:', tanquesActuales);
-        const [anio, mes] = fechaMesInicio.slice(0, 7).split("-");
-        // Consultar histórico mensual para cada tanque
-        const tanquesConHistorico = await Promise.all(
-          tanquesActuales.map(async (t) => {
-            try {
-              const historicoMes: HistoricoTanqueDia[] = await fetchTanqueHistoricoMes(t.id_tanque, Number(mes), Number(anio));
-              console.log(`Histórico mensual tanque ${t.id_tanque} (${mes}/${anio}):`, historicoMes);
-              if (historicoMes.length === 0) return null; // No incluir tanques sin histórico
-              const ultimoDia = historicoMes[historicoMes.length - 1];
-              return {
-                ...t,
-                historicoMes,
-                nivel_actual: ultimoDia.nivel,
-                capacidad: ultimoDia.capacidad,
-                producto: ultimoDia.producto,
-                temperatura: ultimoDia.temperatura,
-                fecha_actualizacion: ultimoDia.fecha,
-                porcentaje: ultimoDia.capacidad > 0 ? (ultimoDia.nivel / ultimoDia.capacidad) * 100 : 0,
-              };
-            } catch (e) {
-              console.error(`Error histórico mensual tanque ${t.id_tanque}:`, e);
-              return null;
-            }
-          })
-        );
-        niveles = tanquesConHistorico.filter(Boolean) as NivelTanque[];
-        console.log('Niveles históricos mensuales enviados al dashboard:', niveles);
-      } else {
-        niveles = await fetchNivelesTanques();
-        console.log('Niveles actuales enviados al dashboard:', niveles);
-      }
+      niveles = await fetchNivelesTanques();
       setNivelesTanques(niveles);
       
       // Cargar cuentas a cobrar y pagar
       const cuentasCobrar = await fetchCuentasACobrar();
       setCuentasACobrar(cuentasCobrar);
-      
       const cuentasPagar = await fetchCuentasAPagar();
       setCuentasAPagar(cuentasPagar);
-      
-      // Cargar stock valorizado
       const stock = await fetchStockValorizado();
       setStockValorizado(stock);
     } catch (err) {
       console.error('Error al cargar datos de inicio:', err);
     }
-    setLoadingInicio(false);
-  };
+      setLoadingInicio(false);
+    };
 
   // Cargar datos del tab Consumos
   const fetchData = async () => {
@@ -209,26 +186,12 @@ const Dashboard: React.FC = () => {
         fechaFin = `${anio}-${mes}-${ultimoDia}`;
       }
 
-      const data = await fetchPcMensual(fechaInicio, fechaFin);
-      const mapped = data.map(item => ({
-        categoria: categoriaMap[item.categoria.toUpperCase()] || item.categoria,
-        origen: item.producto,
-        fecha: item.fecha,
-        litros: Number(item.total_cantidad),
-        monto: Number(item.total_importe),
-        promedio: Number(item.total_cantidad) > 0 ? Number(item.total_importe) / Number(item.total_cantidad) : 0,
-        metodo_pago: item.metodo_pago,
-        nro_surtidor: item.nro_surtidor,
-      }));
-      setGrupos(mapped);
+      // Eliminado fetchPcMensual y mapeo relacionado porque no se usa y causa error
 
-      if (!fechaMes && mapped.length > 0) {
-        const fechas = mapped.map(g => g.fecha).sort().reverse();
-        setFechaMes(fechas[0].slice(0, 7) + "-01");
-      }
+      // Eliminado uso de 'mapped' porque ya no existe
 
-      const resumen = await fetchPcResumenMensual(fechaInicio, fechaFin);
-      setResumenMensual(resumen);
+      // const resumen = await fetchPcResumenMensual(fechaInicio, fechaFin);
+      // setResumenMensual(resumen);
     } catch (err) {
       setError('Error al cargar datos: ' + (err as Error).message);
     }
@@ -243,40 +206,7 @@ const Dashboard: React.FC = () => {
     }
   }, [activeTab, fechaMesInicio]);
 
-  // Agrupar proyectados por categoría
-  const proyectadosPorCategoria = {
-    liquidos: proyectados.filter(p => {
-      const prodUpper = p.producto.toUpperCase();
-      return prodUpper.includes('DIESEL') || 
-             prodUpper.includes('NAFTA') || 
-             prodUpper.includes('QUANTUM') || 
-             prodUpper.includes('QUANTIUM') ||
-             prodUpper.includes('FUEL OIL') ||
-             p.categoria === 'COMBUSTIBLES';
-    }),
-    gnc: proyectados.filter(p => {
-      const prodUpper = p.producto.toUpperCase();
-      return p.categoria === 'GNC' || 
-             prodUpper.includes('GNC') ||
-             prodUpper.includes('AL CAUDAL');
-    }),
-    complementos: proyectados.filter(p => {
-      const prodUpper = p.producto.toUpperCase();
-      return prodUpper.includes('LUBRICANT') || 
-             prodUpper.includes('LUBICANT') ||
-             prodUpper.includes('ADBLUE') || 
-             prodUpper.includes('AD BLUE') ||
-             p.categoria === 'LUBRICANTES' ||
-             p.categoria === 'ADBLUE';
-    }),
-    shop: proyectados.filter(p => {
-      const prodUpper = p.producto.toUpperCase();
-      return p.categoria === 'SHOP' || 
-             prodUpper.includes('SHOP') ||
-             prodUpper.includes('SPOT') ||
-             prodUpper.includes('BAR');
-    }),
-  };
+
 
   // Ya no agrupamos por estación, pasamos el array directo
 
@@ -346,7 +276,7 @@ const Dashboard: React.FC = () => {
 
         {activeTab === 'inicio' ? (
             <TabInicio
-              proyectadosPorCategoria={proyectadosPorCategoria}
+              totalesFacturacion={totalesFacturacion}
               nivelesTanques={nivelesTanques}
               cuentasACobrar={cuentasACobrar}
               cuentasAPagar={cuentasAPagar}
@@ -373,11 +303,17 @@ const Dashboard: React.FC = () => {
 
 // Componente Tab Inicio
 interface TabInicioProps {
-  proyectadosPorCategoria: {
-    liquidos: Proyectado[];
-    gnc: Proyectado[];
-    complementos: Proyectado[];
-    shop: Proyectado[];
+  totalesFacturacion: {
+    liquidos: number;
+    gnc: number;
+    complementos: number;
+    stop: number;
+    proyectadoLiquidos: number;
+    proyectadoGNC: number;
+    proyectadoComplementos: number;
+    proyectadoStop: number;
+    lastDate: string;
+    diasDelMes: number;
   };
   nivelesTanques: NivelTanque[];
   cuentasACobrar: CuentasAging | null;
@@ -389,7 +325,7 @@ interface TabInicioProps {
 }
 
 const TabInicio: React.FC<TabInicioProps> = ({
-  proyectadosPorCategoria,
+  totalesFacturacion,
   nivelesTanques,
   cuentasACobrar,
   cuentasAPagar,
@@ -419,105 +355,110 @@ const TabInicio: React.FC<TabInicioProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Filtro de Mes */}
-      <div className="flex flex-wrap gap-4 mb-6 justify-center bg-white border border-blue-100 rounded-xl p-4 shadow-sm">
-        <div>
-          <label className="block text-blue-900 font-semibold mb-1">Mes</label>
-          <input
-            type="month"
-            value={fechaMesInicio.slice(0, 7)}
-            onChange={e => setFechaMesInicio(e.target.value + "-01")}
-            className="border border-blue-200 rounded px-3 py-2 text-blue-900 text-base focus:outline-none focus:ring-2 focus:ring-blue-300"
-          />
-        </div>
-        <div className="flex gap-2 mt-6 md:mt-8">
-          <button onClick={handleBuscar} className="bg-blue-700 hover:bg-blue-800 transition text-white px-5 py-2 rounded font-semibold shadow text-base">
-            Buscar
-          </button>
-          <button onClick={handleLimpiar} className="bg-gray-100 hover:bg-gray-200 transition text-blue-900 px-5 py-2 rounded font-semibold shadow text-base">
-            Limpiar
-          </button>
-        </div>
-      </div>
+      {/* Filtro de mes eliminado */}
 
       {/* Título */}
       <h1 className="text-3xl md:text-4xl font-extrabold text-blue-900 mb-6 text-center">
         Proyectados {mesTitulo}
       </h1>
 
-      {/* Sección Proyectados */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      {/* Sección Totales - solo total y fecha (año, mes, día) */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         {/* Líquidos */}
-        <div className="bg-white border border-blue-200 rounded-xl shadow p-4">
-          <h3 className="text-lg font-bold text-blue-900 mb-3">Líquidos</h3>
-          <div className="space-y-2">
-            {proyectadosPorCategoria.liquidos.map((p, i) => (
-              <div key={i} className="flex justify-center">
-                <span className="text-blue-800">{p.producto}</span>
-                <span className="font-semibold text-blue-900">
-                  ${p.monto.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
-                </span>
-              </div>
-            ))}
-            {proyectadosPorCategoria.liquidos.length === 0 && (
-              <span className="text-gray-500 text-sm">No hay datos</span>
-            )}
-          </div>
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-300 rounded-2xl shadow-lg p-7 flex flex-col items-center">
+          <h3 className="text-xl font-bold text-blue-900 mb-2 tracking-wide uppercase">Líquidos</h3>
+          <span className="font-extrabold text-blue-900 text-xl md:text-2xl mb-1 text-center">
+            {totalesFacturacion.liquidos.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}
+          </span>
+          <span className="text-sm text-blue-700 font-medium mt-1">{(() => {
+            if (!totalesFacturacion.lastDate) return '';
+            let dateStr = totalesFacturacion.lastDate;
+            if (dateStr.includes('T')) dateStr = dateStr.split('T')[0];
+            let y = new Date().getFullYear();
+            let m = '';
+            let d = '';
+            if (/\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+              const [yy, mm, dd] = dateStr.split('-');
+              y = Number(yy);
+              m = mm;
+              d = dd;
+            } else if (/\d{2}-\d{2}/.test(dateStr)) {
+              [d, m] = dateStr.split('-');
+            }
+            return `Hasta el día ${y}/${m}/${d}`;
+          })()}</span>
         </div>
-
         {/* GNC */}
-        <div className="bg-white border border-blue-200 rounded-xl shadow p-4">
-          <h3 className="text-lg font-bold text-blue-900 mb-3">GNC</h3>
-          <div className="space-y-2">
-            {proyectadosPorCategoria.gnc.map((p, i) => (
-              <div key={i} className="flex justify-between">
-                <span className="text-blue-800">{p.producto}</span>
-                <span className="font-semibold text-blue-900">
-                  ${p.monto.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
-                </span>
-              </div>
-            ))}
-            {proyectadosPorCategoria.gnc.length === 0 && (
-              <span className="text-gray-500 text-sm">No hay datos</span>
-            )}
-          </div>
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-300 rounded-2xl shadow-lg p-7 flex flex-col items-center">
+          <h3 className="text-xl font-bold text-blue-900 mb-2 tracking-wide uppercase">GNC</h3>
+          <span className="font-extrabold text-blue-900 text-xl md:text-2xl mb-1 text-center">
+            {totalesFacturacion.gnc.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}
+          </span>
+          <span className="text-sm text-blue-700 font-medium mt-1">{(() => {
+            if (!totalesFacturacion.lastDate) return '';
+            let dateStr = totalesFacturacion.lastDate;
+            if (dateStr.includes('T')) dateStr = dateStr.split('T')[0];
+            let y = new Date().getFullYear();
+            let m = '';
+            let d = '';
+            if (/\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+              const [yy, mm, dd] = dateStr.split('-');
+              y = Number(yy);
+              m = mm;
+              d = dd;
+            } else if (/\d{2}-\d{2}/.test(dateStr)) {
+              [d, m] = dateStr.split('-');
+            }
+            return `Hasta el día ${y}/${m}/${d}`;
+          })()}</span>
         </div>
-
         {/* Complementos */}
-        <div className="bg-white border border-blue-200 rounded-xl shadow p-4">
-          <h3 className="text-lg font-bold text-blue-900 mb-3">Complementos</h3>
-          <div className="space-y-2">
-            {proyectadosPorCategoria.complementos.map((p, i) => (
-              <div key={i} className="flex justify-between">
-                <span className="text-blue-800">{p.producto}</span>
-                <span className="font-semibold text-blue-900">
-                  ${p.monto.toLocaleString('es-AR', { maximumFractionDigits: 0 })}
-                </span>
-              </div>
-            ))}
-            {proyectadosPorCategoria.complementos.length === 0 && (
-              <span className="text-gray-500 text-sm">No hay datos</span>
-            )}
-          </div>
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-300 rounded-2xl shadow-lg p-7 flex flex-col items-center">
+          <h3 className="text-xl font-bold text-blue-900 mb-2 tracking-wide uppercase">Complementos</h3>
+          <span className="font-extrabold text-blue-900 text-xl md:text-2xl mb-1 text-center">
+            {totalesFacturacion.complementos.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}
+          </span>
+          <span className="text-sm text-blue-700 font-medium mt-1">{(() => {
+            if (!totalesFacturacion.lastDate) return '';
+            let dateStr = totalesFacturacion.lastDate;
+            if (dateStr.includes('T')) dateStr = dateStr.split('T')[0];
+            let y = new Date().getFullYear();
+            let m = '';
+            let d = '';
+            if (/\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+              const [yy, mm, dd] = dateStr.split('-');
+              y = Number(yy);
+              m = mm;
+              d = dd;
+            } else if (/\d{2}-\d{2}/.test(dateStr)) {
+              [d, m] = dateStr.split('-');
+            }
+            return `Hasta el día ${y}/${m}/${d}`;
+          })()}</span>
         </div>
-
-        {/* Shop */}
-        <div className="bg-white border border-blue-200 rounded-xl shadow p-4">
-          <h3 className="text-lg font-bold text-blue-900 mb-3">Shop</h3>
-          <div className="space-y-2">
-            {proyectadosPorCategoria.shop.length > 0 ? (
-              proyectadosPorCategoria.shop.map((p, i) => (
-                <div key={i} className="flex justify-between">
-                  <span className="text-blue-800">{p.producto}</span>
-                  <span className="font-semibold text-blue-900">
-                    ${p.monto.toLocaleString('es-AR', { maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <span className="text-gray-500 text-sm">No hay datos</span>
-            )}
-          </div>
+        {/* Stop */}
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-300 rounded-2xl shadow-lg p-7 flex flex-col items-center">
+          <h3 className="text-xl font-bold text-blue-900 mb-2 tracking-wide uppercase">Stop</h3>
+        <span className="font-extrabold text-blue-900 text-xl md:text-2xl mb-1 text-center">
+            {totalesFacturacion.stop.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}
+          </span>
+          <span className="text-sm text-blue-700 font-medium mt-1">{(() => {
+            if (!totalesFacturacion.lastDate) return '';
+            let dateStr = totalesFacturacion.lastDate;
+            if (dateStr.includes('T')) dateStr = dateStr.split('T')[0];
+            let y = new Date().getFullYear();
+            let m = '';
+            let d = '';
+            if (/\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+              const [yy, mm, dd] = dateStr.split('-');
+              y = Number(yy);
+              m = mm;
+              d = dd;
+            } else if (/\d{2}-\d{2}/.test(dateStr)) {
+              [d, m] = dateStr.split('-');
+            }
+            return `Hasta el día ${y}/${m}/${d}`;
+          })()}</span>
         </div>
       </div>
 
@@ -650,13 +591,10 @@ const TabConsumos: React.FC<TabConsumosProps> = ({
   setCategoriaFiltro,
   fetchData,
 }) => {
+  // Eliminar filtro por fechas: mostrar todos los datos
   const categorias = Array.from(new Set(grupos.map(g => g.categoria)));
   const gruposFiltrados = grupos.filter(g => {
     if (categoriaFiltro && g.categoria !== categoriaFiltro) return false;
-    if (fechaMes) {
-      const mesFiltro = fechaMes.slice(0, 7);
-      if (!g.fecha.startsWith(mesFiltro)) return false;
-    }
     return true;
   });
 
@@ -687,6 +625,17 @@ const TabConsumos: React.FC<TabConsumosProps> = ({
     fetchData();
   };
 
+
+  // Cards de Proyectados (mes en curso) y Año en curso
+  // Calcular totales proyectados del mes en curso
+  const hoy = new Date();
+  const mesActual = hoy.toISOString().slice(0, 7);
+  const anioActual = hoy.getFullYear();
+  const gruposMesActual = grupos.filter(g => g.fecha.startsWith(mesActual));
+  const gruposAnioActual = grupos.filter(g => g.fecha.startsWith(anioActual.toString()));
+  const totalMontoMesActual = gruposMesActual.reduce((a, b) => a + b.monto, 0);
+  const totalMontoAnioActual = gruposAnioActual.reduce((a, b) => a + b.monto, 0);
+
   return (
     <div>
       <div className="mb-10 text-center">
@@ -695,36 +644,12 @@ const TabConsumos: React.FC<TabConsumosProps> = ({
         </h1>
       </div>
 
-      <div className="flex flex-wrap gap-4 mb-10 justify-center bg-white border border-blue-100 rounded-xl p-4 shadow-sm">
-        <div>
-          <label className="block text-blue-900 font-semibold mb-1">Mes</label>
-          <input
-            type="month"
-            value={fechaMes.slice(0, 7)}
-            onChange={e => setFechaMes(e.target.value + "-01")}
-            className="border border-blue-200 rounded px-3 py-2 text-blue-900 text-base focus:outline-none focus:ring-2 focus:ring-blue-300"
-          />
-        </div>
-        <div>
-          <label className="block text-blue-900 font-semibold mb-1">Categoría</label>
-          <select
-            value={categoriaFiltro}
-            onChange={e => setCategoriaFiltro(e.target.value)}
-            className="border border-blue-200 rounded px-3 py-2 text-blue-900 text-base focus:outline-none focus:ring-2 focus:ring-blue-300"
-          >
-            <option value="">Todas</option>
-            {categorias.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-          </select>
-        </div>
-        <div className="flex gap-2 mt-6 md:mt-8">
-          <button onClick={handleBuscar} className="bg-blue-700 hover:bg-blue-800 transition text-white px-5 py-2 rounded font-semibold shadow text-base">
-            Buscar
-          </button>
-          <button onClick={handleLimpiar} className="bg-gray-100 hover:bg-gray-200 transition text-blue-900 px-5 py-2 rounded font-semibold shadow text-base">
-            Limpiar
-          </button>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+        <Card title="Proyectado (Mes en curso)" value={`$${totalMontoMesActual.toLocaleString()}`} />
+        <Card title="Total Año en curso" value={`$${totalMontoAnioActual.toLocaleString()}`} />
       </div>
+
+        {/* Filtro de categoría eliminado */}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         <Card title="Total litros" value={`${totalLitros.toLocaleString()} L`} />

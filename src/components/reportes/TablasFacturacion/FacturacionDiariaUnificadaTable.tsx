@@ -201,13 +201,21 @@ const FacturacionDiariaUnificadaTable: React.FC = () => {
           const totalVentasDia = rows.reduce((acc, r) => acc + (
             (r.total_dinero_dia ?? 0) + (r.total_gnc_dinero ?? 0) + (r.total_venta_dia ?? 0) + (r.total_otros_dinero ?? 0)
           ), 0);
-          const proyectadoVentasDia = totalVentasDia / diasDelMes;
+          // Proyectado: total * 31 (según requerimiento)
+
 
           // Totales individuales
+
           const totalDineroLiquidos = rows.reduce((acc, r) => acc + (r.total_dinero_dia ?? 0), 0);
           const totalDineroGNC = rows.reduce((acc, r) => acc + (r.total_gnc_dinero ?? 0), 0);
           const totalStop = rows.reduce((acc, r) => acc + (r.total_venta_dia ?? 0), 0);
           const totalComplementos = rows.reduce((acc, r) => acc + (r.total_otros_dinero ?? 0), 0);
+
+          // Proyectados individuales por sección
+          const proyectadoLiquidos = totalDineroLiquidos * diasDelMes;
+          const proyectadoGNC = totalDineroGNC * diasDelMes;
+          const proyectadoComplementos = totalComplementos * diasDelMes;
+          const proyectadoStop = totalStop * diasDelMes;
 
           // Card color scheme
           const colorLiquidos = '#0d47a1';
@@ -235,7 +243,7 @@ const FacturacionDiariaUnificadaTable: React.FC = () => {
                   {totalDineroLiquidos.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}
                 </div>
                 <div style={{ fontSize: 13, color: '#666', marginBottom: 2 }}>Hasta el día {lastDate}</div>
-                <div style={{ fontSize: 14, color: colorLiquidos, fontWeight: 700, marginBottom: 8 }}>Proyectado: {proyectadoVentasDia.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}</div>
+                <div style={{ fontSize: 14, color: colorLiquidos, fontWeight: 700, marginBottom: 8 }}>Proyectado: {proyectadoLiquidos.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}</div>
               </div>
               {/* GNC */}
               <div style={{
@@ -254,7 +262,7 @@ const FacturacionDiariaUnificadaTable: React.FC = () => {
                   {totalDineroGNC.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}
                 </div>
                 <div style={{ fontSize: 13, color: '#666', marginBottom: 2 }}>Hasta el día {lastDate}</div>
-                <div style={{ fontSize: 14, color: colorGNC, fontWeight: 700, marginBottom: 8 }}>Proyectado: {proyectadoVentasDia.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}</div>
+                <div style={{ fontSize: 14, color: colorGNC, fontWeight: 700, marginBottom: 8 }}>Proyectado: {proyectadoGNC.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}</div>
               </div>
               {/* Complementos */}
               <div style={{
@@ -273,7 +281,7 @@ const FacturacionDiariaUnificadaTable: React.FC = () => {
                   {totalComplementos.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}
                 </div>
                 <div style={{ fontSize: 13, color: '#666', marginBottom: 2 }}>Hasta el día {lastDate}</div>
-                <div style={{ fontSize: 14, color: colorComplementos, fontWeight: 700, marginBottom: 8 }}>Proyectado: {proyectadoVentasDia.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}</div>
+                <div style={{ fontSize: 14, color: colorComplementos, fontWeight: 700, marginBottom: 8 }}>Proyectado: {proyectadoComplementos.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}</div>
               </div>
                 {/* Stop */}
               <div style={{
@@ -292,7 +300,7 @@ const FacturacionDiariaUnificadaTable: React.FC = () => {
                   {totalStop.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}
                 </div>
                 <div style={{ fontSize: 13, color: '#666', marginBottom: 2 }}>Hasta el día {lastDate}</div>
-                <div style={{ fontSize: 14, color: colorStop, fontWeight: 700, marginBottom: 8 }}>Proyectado: {proyectadoVentasDia.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}</div>
+                <div style={{ fontSize: 14, color: colorStop, fontWeight: 700, marginBottom: 8 }}>Proyectado: {proyectadoStop.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 })}</div>
               </div>
             </div>
           );
