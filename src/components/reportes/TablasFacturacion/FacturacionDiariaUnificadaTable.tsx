@@ -212,10 +212,24 @@ const FacturacionDiariaUnificadaTable: React.FC = () => {
           const totalComplementos = rows.reduce((acc, r) => acc + (r.total_otros_dinero ?? 0), 0);
 
           // Proyectados individuales por sección
-          const proyectadoLiquidos = totalDineroLiquidos * diasDelMes;
-          const proyectadoGNC = totalDineroGNC * diasDelMes;
-          const proyectadoComplementos = totalComplementos * diasDelMes;
-          const proyectadoStop = totalStop * diasDelMes;
+  
+const diasConLiquidos = rows.filter(r => (r.total_dinero_dia ?? 0) > 0).length;
+const diasConGNC = rows.filter(r => (r.total_gnc_dinero ?? 0) > 0).length;
+const diasConComplementos = rows.filter(r => (r.total_otros_dinero ?? 0) > 0).length;
+const diasConStop = rows.filter(r => (r.total_venta_dia ?? 0) > 0).length;
+
+// Promedios por día
+const promedioLiquidos = diasConLiquidos > 0 ? totalDineroLiquidos / diasConLiquidos : 0;
+const promedioGNC = diasConGNC > 0 ? totalDineroGNC / diasConGNC : 0;
+const promedioComplementos = diasConComplementos > 0 ? totalComplementos / diasConComplementos : 0;
+const promedioStop = diasConStop > 0 ? totalStop / diasConStop : 0;
+
+// Proyectados correctos
+const proyectadoLiquidos = promedioLiquidos * diasDelMes;
+const proyectadoGNC = promedioGNC * diasDelMes;
+const proyectadoComplementos = promedioComplementos * diasDelMes;
+const proyectadoStop = promedioStop * diasDelMes;
+
 
           // Card color scheme
           const colorLiquidos = '#0d47a1';
