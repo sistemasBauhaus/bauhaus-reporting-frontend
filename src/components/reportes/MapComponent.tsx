@@ -36,19 +36,24 @@ const MapComponent: React.FC<MapComponentProps> = ({ posiciones, onMarkerClick }
     };
   }, [selectedPosicion]);
 
-  // Ajustar el mapa para mostrar todos los puntos (fit bounds)
+  // Ajustar el mapa para mostrar todos los puntos (fit bounds) incluso en el primer render
   useEffect(() => {
-    if (!mapRef.current || posiciones.length === 0) return;
-    const bounds = new maplibregl.LngLatBounds();
-    posiciones.forEach(pos => {
+    if (!mapRef.current) return;
+    // Solo hacer fitBounds si hay al menos 1 posición válida
+    const validPositions = posiciones.filter(pos => {
       const lat = parseFloat(pos.lat);
       const lng = parseFloat(pos.lng);
-      if (!isNaN(lat) && !isNaN(lng)) {
-        bounds.extend([lng, lat]);
-      }
+      return !isNaN(lat) && !isNaN(lng);
+    });
+    if (validPositions.length === 0) return;
+    const bounds = new maplibregl.LngLatBounds();
+    validPositions.forEach(pos => {
+      const lat = parseFloat(pos.lat);
+      const lng = parseFloat(pos.lng);
+      bounds.extend([lng, lat]);
     });
     if (!bounds.isEmpty()) {
-      mapRef.current.fitBounds(bounds, { padding: 60, duration: 800 });
+      mapRef.current.fitBounds(bounds, { padding: 160, duration: 800 });
     }
   }, [posiciones]);
 
