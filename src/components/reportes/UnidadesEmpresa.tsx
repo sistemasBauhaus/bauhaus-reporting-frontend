@@ -1,25 +1,12 @@
+
 import React, { useState, useEffect } from 'react';
 import { fetchUnidadesEmpresa, fetchPosicionesUnidades, UnidadEmpresa, PosicionUnidad } from '../../api/reportes';
-
-// Importación dinámica del componente del mapa
-let MapComponent: React.ComponentType<{ posiciones: PosicionUnidad[]; onMarkerClick: (posicion: PosicionUnidad) => void }> | null = null;
-
-const loadMapComponent = async () => {
-  if (!MapComponent) {
-    const module = await import('./MapComponent');
-    MapComponent = module.default;
-  }
-  return MapComponent;
-};
-
-interface UnidadesEmpresaProps {
-  fechaInicio?: string;
-  fechaFin?: string;
-  onFechaChange?: (inicio: string, fin: string) => void;
-}
+import MapComponent from './MapComponent';
 
 
-const UnidadesEmpresa: React.FC<UnidadesEmpresaProps> = ({ fechaInicio, fechaFin, onFechaChange }) => {
+
+
+const UnidadesEmpresa: React.FC = () => {
   // Hooks de estado SIEMPRE al inicio
   const [data, setData] = useState<UnidadEmpresa[]>([]);
   const [posiciones, setPosiciones] = useState<PosicionUnidad[]>([]);
@@ -27,41 +14,27 @@ const UnidadesEmpresa: React.FC<UnidadesEmpresaProps> = ({ fechaInicio, fechaFin
   const [error, setError] = useState<string | null>(null);
   const [selectedUnidad, setSelectedUnidad] = useState<UnidadEmpresa | null>(null);
   const [selectedPosicion, setSelectedPosicion] = useState<PosicionUnidad | null>(null);
-  const [mapLoaded, setMapLoaded] = useState(false);
-  const [MapComponentLoaded, setMapComponentLoaded] = useState<React.ComponentType<{ posiciones: PosicionUnidad[]; onMarkerClick: (posicion: PosicionUnidad) => void }> | null>(null);
+  // Eliminar estados de carga de mapa dinámico
   // Filtros visuales para el mapa (deben estar aquí, no después de ningún return)
   const [filtroEstado, setFiltroEstado] = useState('todos');
   const [filtroPlaca, setFiltroPlaca] = useState('');
 
   useEffect(() => {
     fetchData();
-  }, [fechaInicio, fechaFin]);
-
-  useEffect(() => {
-    // Cargar el componente del mapa de forma asíncrona después del primer render
-    const timer = setTimeout(() => {
-      loadMapComponent().then((Component) => {
-        setMapComponentLoaded(() => Component);
-        setMapLoaded(true);
-      }).catch((err) => {
-        console.error('Error al cargar el componente del mapa:', err);
-        setError('Error al cargar el mapa. Por favor, recarga la página.');
-      });
-    }, 100);
-    
-    return () => clearTimeout(timer);
   }, []);
+
+  // Eliminar useEffect de carga dinámica
 
   const fetchData = async () => {
     setLoading(true);
     setError(null);
     try {
-      // Primero obtener las unidades
-      const unidadesData = await fetchUnidadesEmpresa(fechaInicio, fechaFin);
+      // Obtener las unidades sin filtro de fechas
+      const unidadesData = await fetchUnidadesEmpresa();
       console.log('📦 Unidades crudas recibidas:', unidadesData);
       setData(unidadesData);
 
-      // Luego sincronizar y obtener las posiciones (sincronizar=true por defecto)
+      // Obtener las posiciones (sincronizar=true por defecto)
       const posicionesData = await fetchPosicionesUnidades(100, true);
       console.log('📦 Posiciones crudas recibidas:', posicionesData);
       setPosiciones(posicionesData);
@@ -157,16 +130,10 @@ const UnidadesEmpresa: React.FC<UnidadesEmpresaProps> = ({ fechaInicio, fechaFin
           <h2 className="text-lg font-bold text-blue-900 mb-4">Mapa de Argentina - Posiciones de Unidades Móviles</h2>
           
           <div className="w-full h-[600px] rounded-lg overflow-hidden border border-blue-200">
-            {!mapLoaded || !MapComponentLoaded ? (
-              <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                <span className="text-blue-700 text-base font-medium">Cargando mapa...</span>
-              </div>
-            ) : (
-              <MapComponentLoaded 
-                posiciones={posicionesFiltradas} 
-                onMarkerClick={setSelectedPosicion}
-              />
-            )}
+            <MapComponent 
+              posiciones={posicionesFiltradas} 
+              onMarkerClick={setSelectedPosicion}
+            />
           </div>
           <p className="text-xs text-gray-500 mt-2">
             💡 Haz clic en los marcadores para ver información detallada. Verde = En movimiento, Rojo = Detenido
